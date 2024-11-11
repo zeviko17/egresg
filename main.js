@@ -182,3 +182,32 @@ class MessageManager {
 
 // יצירת אובייקט המנהל והתחלת האפליקציה
 const messageManager = new MessageManager();
+
+// טעינת קבוצות מהגוגל שיטס
+async function loadGroups() {
+    const SHEET_ID = '10IkkOpeD_VoDpqMN23QFxGyuW0_p0TZx4NpWNcMN-Ss';
+    const TAB_NAME = 'קבוצות להודעות';
+    
+    try {
+        const response = await fetch(
+            `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${TAB_NAME}`
+        );
+        const text = await response.text();
+        const data = JSON.parse(text.substr(47).slice(0, -2));
+        
+        const groupsList = document.querySelector('.neighborhood-list');
+        // מניח שהנתונים בטבלה הם: שכונה, קישור, ID הקבוצה
+        groupsList.innerHTML = data.table.rows.map(row => `
+            <div class="group-item">
+                <input type="checkbox" id="group_${row.c[2].v}">
+                <label for="group_${row.c[2].v}">${row.c[0].v}</label>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading groups:', error);
+        alert('שגיאה בטעינת רשימת הקבוצות');
+    }
+}
+
+// הפעלה כשהדף נטען
+document.addEventListener('DOMContentLoaded', loadGroups);
