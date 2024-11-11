@@ -34,59 +34,59 @@ class MessageManager {
     }
 
     // טעינת קבוצות מגוגל שיטס
-    async loadGroups() {
-        try {
-            const response = await fetch(
-                `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${SHEETS_CONFIG.tabName}`
-            );
-            const text = await response.text();
-            const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
+async loadGroups() {
+    try {
+        const response = await fetch(
+            `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${SHEETS_CONFIG.tabName}`
+        );
+        const text = await response.text();
+        const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
 
-            // אוספים את כל השמות מעמודה B וה-IDs מעמודה D (למעט השורה הראשונה)
-            const groups = [];
+        // Initialize the groups array
+        const groups = [];
 
-            json.table.rows.forEach((row, index) => {
-                console.log('Processing row:', index, row.c);
-                if (row.c && row.c[1] && row.c[1].v) {
-                    const name = row.c[1].v;
-                    let id = null;
+        json.table.rows.forEach((row, index) => {
+            console.log('Processing row:', index, row.c);
 
-                    if (row.c[3] && row.c[3].v) {
-                        id = row.c[3].v;
-                    }
+            // Check if the row has a value in column B (the group name)
+            if (row.c && row.c[1] && row.c[1].v) {
+                const name = row.c[1].v;
+                const id = row.c[3] ? row.c[3].v : null;  // Get ID if it exists, else set to null
 
-                    console.log(`Found group: name=${name}, id=${id}`);
+                console.log(`Found group: name=${name}, id=${id}`);
 
-                    // מדלגים על השורה הראשונה אם היא כותרת
-                    if (name !== 'שכונה' && !name.includes('כללי') && !name.includes('GENERAL')) {
-                        groups.push({ name, id });
-                    }
+                // Skip the header row if it contains 'שכונה'
+                if (index > 0) {  // Start from the second row, assuming row 0 is the header
+                    groups.push({ name, id });
                 }
-            });
-
-            // לוג לבדיקת הקבוצות הטעונות
-            console.log('Loaded groups:', groups);
-
-            // מסדרים ומכינים את מערך הקבוצות
-            this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
-
-            const container = document.querySelector('.neighborhood-list');
-            if (container) {
-                container.innerHTML = this.groups.map((group, index) => `
-                    <div class="group-item">
-                        <input type="checkbox" 
-                               id="group-${index}" 
-                               onchange="messageManager.toggleGroup(${index})">
-                        <label for="group-${index}"> ${group.name}</label>
-                    </div>
-                `).join('');
             }
+        });
 
-        } catch (error) {
-            console.error('Error loading groups:', error);
-            alert('שגיאה בטעינת רשימת הקבוצות');
+        // Log to check loaded groups
+        console.log('Loaded groups:', groups);
+
+        // Sort groups alphabetically by name
+        this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Render groups in the HTML
+        const container = document.querySelector('.neighborhood-list');
+        if (container) {
+            container.innerHTML = this.groups.map((group, index) => `
+                <div class="group-item">
+                    <input type="checkbox" 
+                           id="group-${index}" 
+                           onchange="messageManager.toggleGroup(${index})">
+                    <label for="group-${index}"> ${group.name}</label>
+                </div>
+            `).join('');
         }
+
+    } catch (error) {
+        console.error('Error loading groups:', error);
+        alert('שגיאה בטעינת רשימת הקבוצות');
     }
+}
+
 
     // חיפוש קבוצות (אם נדרש)
     handleSearch(event) {
