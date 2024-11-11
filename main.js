@@ -45,25 +45,24 @@ async loadGroups() {
             `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${TAB_NAME}`
         );
         const text = await response.text();
-        const data = JSON.parse(text.substr(47).slice(0, -2));
+        const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
         
-        // נשתמש רק בעמודה B - שמות השכונות
-        this.groups = data.table.rows
-            .filter(row => row.c && row.c[1] && row.c[1].v)  // מסנן רק שורות עם שם שכונה
-            .map(row => ({
-                name: row.c[1].v  // לוקח רק את שם השכונה מעמודה B
-            }));
+        // לוקח את כל השמות מעמודה B, חוץ מהכותרת
+        const groups = json.table.rows
+            .slice(1)  // מדלג על שורת הכותרת
+            .map(row => row.c && row.c[1] && row.c[1].v)
+            .filter(name => name);  // מסנן ערכים ריקים
+        
+        console.log('All groups:', groups);  // לבדיקה
 
         const container = document.querySelector('.neighborhood-list');
         if (container) {
-            container.innerHTML = this.groups.map(group => `
+            container.innerHTML = groups.map((name, index) => `
                 <div class="group-item">
                     <input type="checkbox" 
-                        id="group-${group.name}" 
-                        onchange="messageManager.toggleGroup('${group.name}')">
-                    <label for="group-${group.name}">
-                        ${group.name}
-                    </label>
+                           id="group-${index}" 
+                           onchange="messageManager.toggleGroup('${index}')">
+                    <label for="group-${index}"> ${name}</label>
                 </div>
             `).join('');
         }
