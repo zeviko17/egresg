@@ -47,25 +47,38 @@ async loadGroups() {
         const text = await response.text();
         const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
         
-        // פשוט לוקח את כל הערכים מעמודה B
-        const groups = [];
-        for (let row of json.table.rows) {
-            if (row.c && row.c[1] && row.c[1].v) {
-                groups.push(row.c[1].v);
-            }
-        }
+        // קודם נרוץ על כל השורות ונאסוף את כל השמות מעמודה B
+        const uniqueGroups = new Set(); // משתמשים ב-Set כדי למנוע כפילויות
         
-        // מציג את הקבוצות
+        json.table.rows.forEach(row => {
+            if (row.c && row.c[1] && row.c[1].v) {
+                // מדלגים על השורה הראשונה שהיא כותרת וכל שורה שמכילה "כללי" או "GENERAL"
+                const name = row.c[1].v;
+                if (name !== 'שכונה' && !name.includes('כללי') && !name.includes('GENERAL')) {
+                    uniqueGroups.add(name);
+                }
+            }
+        });
+        
+        const neighborhoods = Array.from(uniqueGroups).sort(); // ממיין לפי א"ב
+        
+        console.log('All neighborhoods:', neighborhoods);  // לבדיקה
+
         const container = document.querySelector('.neighborhood-list');
-        container.innerHTML = groups.map((name, i) => `
-            <div class="group-item">
-                <input type="checkbox" id="group-${i}">
-                <label for="group-${i}">${name}</label>
-            </div>
-        `).join('');
+        if (container) {
+            container.innerHTML = neighborhoods.map(name => `
+                <div class="group-item">
+                    <input type="checkbox" 
+                           id="group-${name}" 
+                           onchange="messageManager.toggleGroup('${name}')">
+                    <label for="group-${name}"> ${name}</label>
+                </div>
+            `).join('');
+        }
 
     } catch (error) {
-        console.log('Error:', error);  // לא מציג הודעת שגיאה למשתמש
+        console.error('Error loading groups:', error);
+        alert('שגיאה בטעינת רשימת הקבוצות');
     }
 }
 
