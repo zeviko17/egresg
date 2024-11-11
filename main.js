@@ -40,38 +40,34 @@ class MessageManager {
 
     // טעינת קבוצות מגוגל שיטס
 async loadGroups() {
-    const SHEET_ID = '10IkkOpeD_VoDpqMN23QFxGyuW0_p0TZx4NpWNcMN-Ss';
-    const TAB_NAME = 'קבוצות להודעות';
-    
     try {
         const response = await fetch(
             `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${TAB_NAME}`
         );
         const text = await response.text();
-        // להדפיס את התגובה לדיבוג
-        console.log('Response:', text);
-        
         const data = JSON.parse(text.substr(47).slice(0, -2));
-        console.log('Parsed data:', data);
         
-        // בדיקה שיש נתונים לפני המיפוי
-        if (data && data.table && data.table.rows && Array.isArray(data.table.rows)) {
-            this.groups = data.table.rows.map(row => {
-                // בדיקה שיש את כל הנתונים הנדרשים
-                if (row.c && row.c[1] && row.c[3]) {
-                    return {
-                        id: row.c[3].v,    // ID קבוצה בעמודה D
-                        name: row.c[1].v,   // שם שכונה בעמודה B
-                        members: 0          // ברירת מחדל למספר חברים
-                    };
-                }
-                return null;
-            }).filter(group => group !== null); // להסיר שורות לא תקינות
-            
-            this.renderFilteredGroups(this.groups);
-        } else {
-            throw new Error('Invalid data structure');
+        // נשתמש רק בעמודה B - שמות השכונות
+        this.groups = data.table.rows
+            .filter(row => row.c && row.c[1] && row.c[1].v)  // מסנן רק שורות עם שם שכונה
+            .map(row => ({
+                name: row.c[1].v  // לוקח רק את שם השכונה מעמודה B
+            }));
+
+        const container = document.querySelector('.neighborhood-list');
+        if (container) {
+            container.innerHTML = this.groups.map(group => `
+                <div class="group-item">
+                    <input type="checkbox" 
+                        id="group-${group.name}" 
+                        onchange="messageManager.toggleGroup('${group.name}')">
+                    <label for="group-${group.name}">
+                        ${group.name}
+                    </label>
+                </div>
+            `).join('');
         }
+
     } catch (error) {
         console.error('Error loading groups:', error);
         alert('שגיאה בטעינת רשימת הקבוצות');
