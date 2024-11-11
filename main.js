@@ -2,19 +2,14 @@
 class MessageManager {
     constructor() {
         // מצב המערכת
-        this.groups = [];              // רשימת כל הקבוצות
+        this.groups = [];               // רשימת כל הקבוצות
         this.selectedGroups = new Set(); // קבוצות שנבחרו
-        this.files = [];               // קבצים שהועלו
-        this.isSending = false;        // האם כרגע בתהליך שליחה
-        this.shouldStop = false;       // האם לעצור את השליחה
+        this.files = [];                // קבצים שהועלו
+        this.isSending = false;         // האם כרגע בתהליך שליחה
+        this.shouldStop = false;        // האם לעצור את השליחה
         
         // קבועים
-        this.API_CONFIG = {
-            instanceId: '7103962196',
-            token: '64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae',
-            baseUrl: 'https://7103.api.greenapi.com/waInstance',
-            messageDelay: 10000 // 10 seconds
-        };
+        this.API_CONFIG = API_CONFIG;
 
         // אתחול
         this.initializeUI();
@@ -24,7 +19,7 @@ class MessageManager {
     // אתחול ממשק המשתמש
     initializeUI() {
         const messageInput = document.getElementById('message');
-        const fileInput = document.getElementById('images');
+        const fileInput = document.getElementById('fileInput');
         const searchInput = document.getElementById('search');
         
         if (messageInput) {
@@ -39,47 +34,48 @@ class MessageManager {
     }
 
     // טעינת קבוצות מגוגל שיטס
-async loadGroups() {
-    try {
-        const response = await fetch(
-            `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${SHEETS_CONFIG.tabName}`
-        );
-        const text = await response.text();
-        const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
+    async loadGroups() {
+        try {
+            const response = await fetch(
+                `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${SHEETS_CONFIG.tabName}`
+            );
+            const text = await response.text();
+            const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
 
-        const uniqueGroups = [];
+            // אוספים את כל השמות מעמודה B (למעט השורה הראשונה)
+            const groupNames = [];
 
-        json.table.rows.forEach(row => {
-            if (row.c && row.c[1] && row.c[1].v) {
-                const name = row.c[1].v;
-                if (name !== 'שכונה' && !name.includes('כללי') && !name.includes('GENERAL')) {
-                    uniqueGroups.push({ id: name, name });
+            json.table.rows.forEach((row) => {
+                if (row.c && row.c[1] && row.c[1].v) {
+                    const name = row.c[1].v;
+                    if (name !== 'שכונה' && !name.includes('כללי') && !name.includes('GENERAL')) {
+                        groupNames.push(name);
+                    }
                 }
+            });
+
+            // מסדרים ומכינים את מערך הקבוצות
+            this.groups = groupNames.sort().map((name) => ({ name }));
+
+            const container = document.querySelector('.neighborhood-list');
+            if (container) {
+                container.innerHTML = this.groups.map((group, index) => `
+                    <div class="group-item">
+                        <input type="checkbox" 
+                               id="group-${index}" 
+                               onchange="messageManager.toggleGroup('${group.name}')">
+                        <label for="group-${index}"> ${group.name}</label>
+                    </div>
+                `).join('');
             }
-        });
 
-        this.groups = uniqueGroups.sort((a, b) => a.name.localeCompare(b.name));
-
-        const container = document.querySelector('.neighborhood-list');
-        if (container) {
-            container.innerHTML = this.groups.map(group => `
-                <div class="group-item">
-                    <input type="checkbox" 
-                           id="group-${group.id}" 
-                           onchange="messageManager.toggleGroup('${group.id}')">
-                    <label for="group-${group.id}"> ${group.name}</label>
-                </div>
-            `).join('');
+        } catch (error) {
+            console.error('Error loading groups:', error);
+            alert('שגיאה בטעינת רשימת הקבוצות');
         }
-
-    } catch (error) {
-        console.error('Error loading groups:', error);
-        alert('שגיאה בטעינת רשימת הקבוצות');
     }
-}
 
-
-    // חיפוש קבוצות
+    // חיפוש קבוצות (אם נדרש)
     handleSearch(event) {
         const searchTerm = event.target.value.trim().toLowerCase();
         const filteredGroups = searchTerm 
@@ -95,13 +91,13 @@ async loadGroups() {
     renderFilteredGroups(groups) {
         const container = document.querySelector('.neighborhood-list');
         if (container) {
-            container.innerHTML = groups.map(group => `
+            container.innerHTML = groups.map((group, index) => `
                 <div class="group-item">
                     <input type="checkbox" 
-                           id="group-${group.id}" 
-                           ${this.selectedGroups.has(group.id) ? 'checked' : ''}
-                           onchange="messageManager.toggleGroup('${group.id}')">
-                    <label for="group-${group.id}">
+                           id="group-${index}" 
+                           ${this.selectedGroups.has(group.name) ? 'checked' : ''}
+                           onchange="messageManager.toggleGroup('${group.name}')">
+                    <label for="group-${index}">
                         ${group.name}
                     </label>
                 </div>
@@ -148,7 +144,14 @@ async loadGroups() {
     }
 
     // שליחת הודעת טקסט
-    async sendTextMessage(groupId, message) {
+    async sendTextMessage(groupName, message) {
+        const chatId = await this.getChatIdFromGroupName(groupName);
+
+        if (!chatId) {
+            console.error(`Chat ID not found for group: ${groupName}`);
+            return;
+        }
+
         const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendMessage/${this.API_CONFIG.token}`;
         const response = await fetch(url, {
             method: 'POST',
@@ -156,24 +159,31 @@ async loadGroups() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                chatId: groupId,
+                chatId: chatId,
                 message: message
             })
         });
-        
+
         if (!response.ok) {
             throw new Error(`Failed to send message: ${response.statusText}`);
         }
-        
+
         return response.json();
     }
 
     // שליחת קובץ
-    async sendFile(groupId, file, caption) {
+    async sendFile(groupName, file, caption) {
+        const chatId = await this.getChatIdFromGroupName(groupName);
+
+        if (!chatId) {
+            console.error(`Chat ID not found for group: ${groupName}`);
+            return;
+        }
+
         const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendFileByUpload/${this.API_CONFIG.token}`;
-        
+
         const formData = new FormData();
-        formData.append('chatId', groupId);
+        formData.append('chatId', chatId);
         formData.append('caption', caption);
         formData.append('file', file);
 
@@ -187,6 +197,23 @@ async loadGroups() {
         }
 
         return response.json();
+    }
+
+    // קבלת chatId על פי שם הקבוצה
+    async getChatIdFromGroupName(groupName) {
+        // יש לממש לוגיקה לקבלת chatId על פי שם הקבוצה
+        // לדוגמה, שימוש במיפוי מקומי או קריאה ל-API
+        // כאן נניח שיש לנו מיפוי מקומי:
+        if (!this.groupNameToChatIdMap) {
+            // אתחל מיפוי של שמות קבוצות ל-chatId
+            this.groupNameToChatIdMap = {
+                // 'שם קבוצה': 'chatId@g.us',
+                // לדוגמה:
+                // 'קבוצת בדיקה': '1234567890-1234567890@g.us',
+            };
+        }
+
+        return this.groupNameToChatIdMap[groupName] || null;
     }
 
     // התחלת תהליך השליחה
@@ -206,17 +233,17 @@ async loadGroups() {
         this.updateUI(true);
 
         try {
-            for (const groupId of this.selectedGroups) {
+            for (const groupName of this.selectedGroups) {
                 if (this.shouldStop) break;
 
                 try {
                     // שליחת הודעת טקסט
-                    await this.sendTextMessage(groupId, message);
+                    await this.sendTextMessage(groupName, message);
 
                     // שליחת קבצים אם יש
                     if (this.files.length > 0) {
                         for (const file of this.files) {
-                            await this.sendFile(groupId, file, '');
+                            await this.sendFile(groupName, file, '');
                         }
                     }
 
@@ -228,7 +255,7 @@ async loadGroups() {
                         await new Promise(resolve => setTimeout(resolve, this.API_CONFIG.messageDelay));
                     }
                 } catch (error) {
-                    console.error(`Error sending to group ${groupId}:`, error);
+                    console.error(`Error sending to group ${groupName}:`, error);
                 }
             }
         } finally {
@@ -244,12 +271,12 @@ async loadGroups() {
 
     // עדכון התקדמות
     updateProgress(sent, total) {
-        const progress = document.querySelector('.progress-bar');
+        const progressBar = document.querySelector('.progress-bar');
         const statusText = document.querySelector('.status-text');
         
-        if (progress) {
+        if (progressBar) {
             const percentage = (sent / total) * 100;
-            progress.style.width = `${percentage}%`;
+            progressBar.style.width = `${percentage}%`;
         }
         
         if (statusText) {
@@ -289,18 +316,18 @@ async loadGroups() {
     }
 
     // החלפת מצב בחירה של קבוצה
-    toggleGroup(groupId) {
-        if (this.selectedGroups.has(groupId)) {
-            this.selectedGroups.delete(groupId);
+    toggleGroup(groupName) {
+        if (this.selectedGroups.has(groupName)) {
+            this.selectedGroups.delete(groupName);
         } else {
-            this.selectedGroups.add(groupId);
+            this.selectedGroups.add(groupName);
         }
         this.validateForm();
     }
 
     // בחירת כל הקבוצות
     selectAll() {
-        this.groups.forEach(group => this.selectedGroups.add(group.id));
+        this.groups.forEach(group => this.selectedGroups.add(group.name));
         this.renderFilteredGroups(this.groups);
         this.validateForm();
     }
