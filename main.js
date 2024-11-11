@@ -1,4 +1,5 @@
-// 0.001 מחלקה לניהול המצב הכללי של האפליקציה
+
+//  0.02 מחלקה לניהול המצב הכללי של האפליקציה
 class MessageManager {
     constructor() {
         // מצב המערכת
@@ -14,6 +15,9 @@ class MessageManager {
         // אתחול
         this.initializeUI();
         this.loadGroups();
+
+        // בדיקה - שליחת הודעה לקבוצה מוגדרת
+        this.testSendMessage();
     }
 
     // אתחול ממשק המשתמש
@@ -34,90 +38,130 @@ class MessageManager {
     }
 
     // טעינת קבוצות מגוגל שיטס
-    async loadGroups() {
-        try {
-            const response = await fetch(
-                `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${SHEETS_CONFIG.tabName}`
-            );
-            const text = await response.text();
-            const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
+async loadGroups() {
+    try {
+        const response = await fetch(
+            https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${SHEETS_CONFIG.tabName}
+        );
+        const text = await response.text();
+        const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
 
-            const numCols = json.table.cols.length;
-            const groups = [];
+        const numCols = json.table.cols.length;
+        const groups = [];
 
-            json.table.rows.forEach((row, index) => {
-                // Reconstruct the cells array with nulls for missing cells
-                const cells = new Array(numCols).fill(null);
-                let cellIndex = 0;
+        json.table.rows.forEach((row, index) => {
+            // Reconstruct the cells array with nulls for missing cells
+            const cells = new Array(numCols).fill(null);
+            let cellIndex = 0;
 
-                for (let colIndex = 0; colIndex < numCols; colIndex++) {
-                    if (row.c && row.c[cellIndex] && (row.c[cellIndex].v !== null && row.c[cellIndex].v !== undefined)) {
-                        cells[colIndex] = row.c[cellIndex];
-                        cellIndex++;
-                    } else {
-                        cells[colIndex] = null;
-                    }
+            for (let colIndex = 0; colIndex < numCols; colIndex++) {
+                if (row.c && row.c[cellIndex] && (row.c[cellIndex].v !== null && row.c[cellIndex].v !== undefined)) {
+                    cells[colIndex] = row.c[cellIndex];
+                    cellIndex++;
+                } else {
+                    cells[colIndex] = null;
                 }
-
-                console.log('Processing row:', index, cells);
-
-                // Extract name and ID from the correct columns
-                const nameCell = cells[1]; // Column B
-                const idCell = cells[3];   // Column D
-
-                if (nameCell && nameCell.v) {
-                    const name = nameCell.v;
-                    let id = null;
-
-                    if (idCell) {
-                        // Check both 'v' and 'f' properties
-                        if (idCell.v !== null && idCell.v !== undefined) {
-                            id = idCell.v;
-                        } else if (idCell.f !== null && idCell.f !== undefined) {
-                            id = idCell.f;
-                        }
-                    }
-
-                    // Log the ID for debugging purposes
-                    console.log(`Raw ID value for group '${name}':`, id);
-
-                    // Check if ID is valid and convert to string if necessary
-                    if (id) {
-                        id = id.toString().trim();
-                        console.log(`Processed ID for group '${name}':`, id);
-                    } else {
-                        console.warn(`No valid ID found for group '${name}', setting ID to null.`);
-                    }
-
-                    // Log the group for debugging
-                    console.log(`Found group: name=${name}, id=${id}`);
-
-                    groups.push({ name, id });
-                }
-            });
-
-            // Log to check all loaded groups
-            console.log('All loaded groups:', groups);
-
-            // Sort groups alphabetically by name
-            this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
-
-            // Render groups in the HTML
-            const container = document.querySelector('.neighborhood-list');
-            if (container) {
-                container.innerHTML = this.groups.map((group, index) => `
-                    <div class="group-item">
-                        <input type="checkbox" 
-                               id="group-${index}" 
-                               onchange="messageManager.toggleGroup(${index})">
-                        <label for="group-${index}"> ${group.name}</label>
-                    </div>
-                `).join('');
             }
 
+            console.log('Processing row:', index, cells);
+
+            // Extract name and ID from the correct columns
+            const nameCell = cells[1]; // Column B
+            const idCell = cells[3];   // Column D
+
+            if (nameCell && nameCell.v) {
+                const name = nameCell.v;
+                let id = null;
+
+                if (idCell) {
+                    // Check both 'v' and 'f' properties
+                    if (idCell.v !== null && idCell.v !== undefined) {
+                        id = idCell.v;
+                    } else if (idCell.f !== null && idCell.f !== undefined) {
+                        id = idCell.f;
+                    }
+                }
+
+                // Log the ID for debugging purposes
+                console.log(Raw ID value for group '${name}':, id);
+
+                // Check if ID is valid and convert to string if necessary
+                if (id) {
+                    id = id.toString().trim();
+                    console.log(Processed ID for group '${name}':, id);
+                } else {
+                    console.warn(No valid ID found for group '${name}', setting ID to null.);
+                }
+
+                // Log the group for debugging
+                console.log(Found group: name=${name}, id=${id});
+
+                groups.push({ name, id });
+            }
+        });
+
+        // Log to check all loaded groups
+        console.log('All loaded groups:', groups);
+
+        // Sort groups alphabetically by name
+        this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Render groups in the HTML
+        const container = document.querySelector('.neighborhood-list');
+        if (container) {
+            container.innerHTML = this.groups.map((group, index) => 
+                <div class="group-item">
+                    <input type="checkbox" 
+                           id="group-${index}" 
+                           onchange="messageManager.toggleGroup(${index})">
+                    <label for="group-${index}"> ${group.name}</label>
+                </div>
+            ).join('');
+        }
+
+    } catch (error) {
+        console.error('Error loading groups:', error);
+        alert('שגיאה בטעינת רשימת הקבוצות');
+    }
+}
+
+
+        // Log to check all loaded groups
+        console.log('All loaded groups:', groups);
+
+        // Sort groups alphabetically by name
+        this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Render groups in the HTML
+        const container = document.querySelector('.neighborhood-list');
+        if (container) {
+            container.innerHTML = this.groups.map((group, index) => 
+                <div class="group-item">
+                    <input type="checkbox" 
+                           id="group-${index}" 
+                           onchange="messageManager.toggleGroup(${index})">
+                    <label for="group-${index}"> ${group.name}</label>
+                </div>
+            ).join('');
+        }
+
+    } catch (error) {
+        console.error('Error loading groups:', error);
+        alert('שגיאה בטעינת רשימת הקבוצות');
+    }
+}
+
+
+    // בדיקת שליחת הודעה
+    async testSendMessage() {
+        try {
+            const testChatId = '120363291001444894@g.us';
+            const testMessage = 'שלום';
+            console.log('Testing send message to:', testChatId);
+            const response = await this.sendTextMessage(testChatId, testMessage);
+            console.log('Test message response:', response);
         } catch (error) {
-            console.error('Error loading groups:', error);
-            alert('שגיאה בטעינת רשימת הקבוצות');
+            console.error('Error in testSendMessage:', error);
         }
     }
 
@@ -137,7 +181,7 @@ class MessageManager {
     renderFilteredGroups(groups) {
         const container = document.querySelector('.neighborhood-list');
         if (container) {
-            container.innerHTML = groups.map((group, index) => `
+            container.innerHTML = groups.map((group, index) => 
                 <div class="group-item">
                     <input type="checkbox" 
                            id="group-${index}" 
@@ -147,7 +191,7 @@ class MessageManager {
                         ${group.name}
                     </label>
                 </div>
-            `).join('');
+            ).join('');
         }
     }
 
@@ -157,7 +201,7 @@ class MessageManager {
         const newFiles = Array.from(event.target.files);
         
         if (this.files.length + newFiles.length > maxFiles) {
-            alert(`ניתן להעלות עד ${maxFiles} קבצים`);
+            alert(ניתן להעלות עד ${maxFiles} קבצים);
             return;
         }
 
@@ -170,15 +214,15 @@ class MessageManager {
     renderFilesPreviews() {
         const container = document.getElementById('image-preview');
         if (container) {
-            container.innerHTML = this.files.map((file, index) => `
+            container.innerHTML = this.files.map((file, index) => 
                 <div class="file-preview">
                     ${file.type.startsWith('image/') 
-                        ? `<img src="${URL.createObjectURL(file)}" alt="${file.name}">`
-                        : `<div class="file-icon">📁 ${file.name}</div>`
+                        ? <img src="${URL.createObjectURL(file)}" alt="${file.name}">
+                        : <div class="file-icon">📁 ${file.name}</div>
                     }
                     <div class="remove" onclick="messageManager.removeFile(${index})">×</div>
                 </div>
-            `).join('');
+            ).join('');
         }
     }
 
@@ -191,7 +235,7 @@ class MessageManager {
 
     // שליחת הודעת טקסט
     async sendTextMessage(chatId, message) {
-        const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendMessage/${this.API_CONFIG.token}`;
+        const url = ${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendMessage/${this.API_CONFIG.token};
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -204,7 +248,7 @@ class MessageManager {
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to send message: ${response.statusText}`);
+            throw new Error(Failed to send message: ${response.statusText});
         }
 
         return response.json();
@@ -212,7 +256,7 @@ class MessageManager {
 
     // שליחת קובץ
     async sendFile(chatId, file, caption) {
-        const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendFileByUpload/${this.API_CONFIG.token}`;
+        const url = ${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendFileByUpload/${this.API_CONFIG.token};
 
         const formData = new FormData();
         formData.append('chatId', chatId);
@@ -225,7 +269,7 @@ class MessageManager {
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to send file: ${response.statusText}`);
+            throw new Error(Failed to send file: ${response.statusText});
         }
 
         return response.json();
@@ -256,7 +300,7 @@ class MessageManager {
                 const chatId = group.id;
 
                 if (!chatId) {
-                    console.error(`No chat ID for group: ${groupName}`);
+                    console.error(No chat ID for group: ${groupName});
                     continue; // Skip this group
                 }
 
@@ -279,7 +323,7 @@ class MessageManager {
                         await new Promise(resolve => setTimeout(resolve, this.API_CONFIG.messageDelay));
                     }
                 } catch (error) {
-                    console.error(`Error sending to group ${groupName}:`, error);
+                    console.error(Error sending to group ${groupName}:, error);
                 }
             }
         } finally {
@@ -300,11 +344,11 @@ class MessageManager {
         
         if (progressBar) {
             const percentage = (sent / total) * 100;
-            progressBar.style.width = `${percentage}%`;
+            progressBar.style.width = ${percentage}%;
         }
         
         if (statusText) {
-            statusText.textContent = `${sent}/${total} קבוצות`;
+            statusText.textContent = ${sent}/${total} קבוצות;
         }
     }
 
