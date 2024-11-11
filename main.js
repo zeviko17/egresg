@@ -68,8 +68,8 @@ async loadGroups() {
             const nameCell = cells[1]; // Column B
             const idCell = cells[3];   // Column D
 
-            if (nameCell && nameCell.v) {
-                const name = nameCell.v;
+            if (nameCell && (nameCell.v || nameCell.f)) {
+                const name = nameCell.v || nameCell.f;
                 let id = null;
 
                 if (idCell) {
