@@ -3,7 +3,7 @@ class MessageManager {
     constructor() {
         // מצב המערכת
         this.groups = [];               // רשימת כל הקבוצות
-        this.selectedGroups = new Set(); // קבוצות שנבחרו
+        this.selectedGroups = new Set(); // קבוצות שנבחרו (אינדקסים של הקבוצות)
         this.files = [];                // קבצים שהועלו
         this.isSending = false;         // האם כרגע בתהליך שליחה
         this.shouldStop = false;        // האם לעצור את השליחה
@@ -42,20 +42,33 @@ class MessageManager {
             const text = await response.text();
             const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
 
-            // אוספים את כל השמות מעמודה B (למעט השורה הראשונה)
-            const groupNames = [];
+            // אוספים את כל השמות מעמודה B וה-IDs מעמודה D (למעט השורה הראשונה)
+            const groups = [];
 
-            json.table.rows.forEach((row) => {
+            json.table.rows.forEach((row, index) => {
+                console.log('Processing row:', index, row.c);
                 if (row.c && row.c[1] && row.c[1].v) {
                     const name = row.c[1].v;
+                    let id = null;
+
+                    if (row.c[3] && row.c[3].v) {
+                        id = row.c[3].v;
+                    }
+
+                    console.log(`Found group: name=${name}, id=${id}`);
+
+                    // מדלגים על השורה הראשונה אם היא כותרת
                     if (name !== 'שכונה' && !name.includes('כללי') && !name.includes('GENERAL')) {
-                        groupNames.push(name);
+                        groups.push({ name, id });
                     }
                 }
             });
 
+            // לוג לבדיקת הקבוצות הטעונות
+            console.log('Loaded groups:', groups);
+
             // מסדרים ומכינים את מערך הקבוצות
-            this.groups = groupNames.sort().map((name) => ({ name }));
+            this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
 
             const container = document.querySelector('.neighborhood-list');
             if (container) {
@@ -63,7 +76,7 @@ class MessageManager {
                     <div class="group-item">
                         <input type="checkbox" 
                                id="group-${index}" 
-                               onchange="messageManager.toggleGroup('${group.name}')">
+                               onchange="messageManager.toggleGroup(${index})">
                         <label for="group-${index}"> ${group.name}</label>
                     </div>
                 `).join('');
@@ -95,8 +108,8 @@ class MessageManager {
                 <div class="group-item">
                     <input type="checkbox" 
                            id="group-${index}" 
-                           ${this.selectedGroups.has(group.name) ? 'checked' : ''}
-                           onchange="messageManager.toggleGroup('${group.name}')">
+                           ${this.selectedGroups.has(index) ? 'checked' : ''}
+                           onchange="messageManager.toggleGroup(${index})">
                     <label for="group-${index}">
                         ${group.name}
                     </label>
@@ -144,14 +157,7 @@ class MessageManager {
     }
 
     // שליחת הודעת טקסט
-    async sendTextMessage(groupName, message) {
-        const chatId = await this.getChatIdFromGroupName(groupName);
-
-        if (!chatId) {
-            console.error(`Chat ID not found for group: ${groupName}`);
-            return;
-        }
-
+    async sendTextMessage(chatId, message) {
         const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendMessage/${this.API_CONFIG.token}`;
         const response = await fetch(url, {
             method: 'POST',
@@ -172,14 +178,7 @@ class MessageManager {
     }
 
     // שליחת קובץ
-    async sendFile(groupName, file, caption) {
-        const chatId = await this.getChatIdFromGroupName(groupName);
-
-        if (!chatId) {
-            console.error(`Chat ID not found for group: ${groupName}`);
-            return;
-        }
-
+    async sendFile(chatId, file, caption) {
         const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendFileByUpload/${this.API_CONFIG.token}`;
 
         const formData = new FormData();
@@ -199,23 +198,6 @@ class MessageManager {
         return response.json();
     }
 
-    // קבלת chatId על פי שם הקבוצה
-    async getChatIdFromGroupName(groupName) {
-        // יש לממש לוגיקה לקבלת chatId על פי שם הקבוצה
-        // לדוגמה, שימוש במיפוי מקומי או קריאה ל-API
-        // כאן נניח שיש לנו מיפוי מקומי:
-        if (!this.groupNameToChatIdMap) {
-            // אתחל מיפוי של שמות קבוצות ל-chatId
-            this.groupNameToChatIdMap = {
-                // 'שם קבוצה': 'chatId@g.us',
-                // לדוגמה:
-                // 'קבוצת בדיקה': '1234567890-1234567890@g.us',
-            };
-        }
-
-        return this.groupNameToChatIdMap[groupName] || null;
-    }
-
     // התחלת תהליך השליחה
     async startSending() {
         if (!this.validateForm()) return;
@@ -233,17 +215,26 @@ class MessageManager {
         this.updateUI(true);
 
         try {
-            for (const groupName of this.selectedGroups) {
+            for (const groupIndex of this.selectedGroups) {
                 if (this.shouldStop) break;
+
+                const group = this.groups[groupIndex];
+                const groupName = group.name;
+                const chatId = group.id;
+
+                if (!chatId) {
+                    console.error(`No chat ID for group: ${groupName}`);
+                    continue; // Skip this group
+                }
 
                 try {
                     // שליחת הודעת טקסט
-                    await this.sendTextMessage(groupName, message);
+                    await this.sendTextMessage(chatId, message);
 
                     // שליחת קבצים אם יש
                     if (this.files.length > 0) {
                         for (const file of this.files) {
-                            await this.sendFile(groupName, file, '');
+                            await this.sendFile(chatId, file, '');
                         }
                     }
 
@@ -298,8 +289,12 @@ class MessageManager {
             sendButton.disabled = isSending;
         }
 
-        // ביטול/אפשור שדות קלט
-        inputs.forEach(input => input.disabled = isSending);
+        // ביטול/אפשור שדות קלט, מלבד כפתור עצור
+        inputs.forEach(input => {
+            if (input.id !== 'stopButton') {
+                input.disabled = isSending;
+            }
+        });
     }
 
     // בדיקת תקינות הטופס
@@ -316,18 +311,19 @@ class MessageManager {
     }
 
     // החלפת מצב בחירה של קבוצה
-    toggleGroup(groupName) {
-        if (this.selectedGroups.has(groupName)) {
-            this.selectedGroups.delete(groupName);
+    toggleGroup(groupIndex) {
+        groupIndex = parseInt(groupIndex);
+        if (this.selectedGroups.has(groupIndex)) {
+            this.selectedGroups.delete(groupIndex);
         } else {
-            this.selectedGroups.add(groupName);
+            this.selectedGroups.add(groupIndex);
         }
         this.validateForm();
     }
 
     // בחירת כל הקבוצות
     selectAll() {
-        this.groups.forEach(group => this.selectedGroups.add(group.name));
+        this.groups.forEach((group, index) => this.selectedGroups.add(index));
         this.renderFilteredGroups(this.groups);
         this.validateForm();
     }
