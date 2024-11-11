@@ -1,41 +1,42 @@
 body {
-    background-color: #f5f5f5;
+    background-color: #f8f9fa;
 }
 
-.card {
-    border: none;
-    border-radius: 15px;
+.container {
+    max-width: 800px;
 }
 
-.groups-list {
-    max-height: 400px;
+/* עיצוב רשימת השכונות */
+.neighborhood-list {
+    max-height: 300px;
     overflow-y: auto;
     border: 1px solid #dee2e6;
     border-radius: 8px;
     padding: 10px;
+    margin-bottom: 20px;
 }
 
 .group-item {
     padding: 8px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    margin: 4px 0;
+    border-radius: 4px;
+    transition: background-color 0.2s;
 }
 
-.group-item:last-child {
-    border-bottom: none;
+.group-item:hover {
+    background-color: #f8f9fa;
 }
 
-.group-info {
-    font-size: 0.9em;
-    color: #666;
+.group-item input[type="checkbox"] {
+    margin-left: 10px;
 }
 
-#filesPreview {
+/* עיצוב תצוגה מקדימה של קבצים */
+#image-preview {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    margin-top: 10px;
 }
 
 .file-preview {
@@ -44,6 +45,7 @@ body {
     height: 100px;
     border-radius: 8px;
     overflow: hidden;
+    border: 1px solid #dee2e6;
 }
 
 .file-preview img {
@@ -57,16 +59,33 @@ body {
     top: 5px;
     right: 5px;
     background: rgba(255,255,255,0.9);
-    border-radius: 50%;
     width: 20px;
     height: 20px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    font-weight: bold;
+    color: #dc3545;
 }
 
+/* עיצוב מד התקדמות */
 .progress {
     height: 10px;
-    border-radius: 5px;
+}
+
+.progress-bar {
+    transition: width 0.3s ease;
+}
+
+.send-button {
+    font-size: 1.1rem;
+    padding: 12px;
+}
+
+/* עיצוב חיפוש */
+#search {
+    border-radius: 20px;
+    padding: 10px 20px;
 }
