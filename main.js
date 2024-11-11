@@ -51,7 +51,18 @@ async loadGroups() {
             // Check if the row has a value in column B (the group name)
             if (row.c && row.c[1] && row.c[1].v) {
                 const name = row.c[1].v;
-                const id = row.c[3] ? row.c[3].v : null;  // Get ID from column D if it exists, else set to null
+                let id = row.c[3] ? row.c[3].v : null;  // Get ID from column D if it exists, else set to null
+
+                // Log the ID for debugging purposes
+                console.log(`Raw ID value for group '${name}':`, id);
+
+                // Check if ID is valid and convert to string if necessary
+                if (id) {
+                    id = id.toString().trim();
+                    console.log(`Processed ID for group '${name}':`, id);
+                } else {
+                    console.warn(`No valid ID found for group '${name}', setting ID to null.`);
+                }
 
                 // Log the group for debugging
                 console.log(`Found group: name=${name}, id=${id}`);
