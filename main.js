@@ -47,29 +47,25 @@ async loadGroups() {
         const text = await response.text();
         const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
         
-        // לוקח את כל השמות מעמודה B, חוץ מהכותרת
-        const groups = json.table.rows
-            .slice(1)  // מדלג על שורת הכותרת
-            .map(row => row.c && row.c[1] && row.c[1].v)
-            .filter(name => name);  // מסנן ערכים ריקים
-        
-        console.log('All groups:', groups);  // לבדיקה
-
-        const container = document.querySelector('.neighborhood-list');
-        if (container) {
-            container.innerHTML = groups.map((name, index) => `
-                <div class="group-item">
-                    <input type="checkbox" 
-                           id="group-${index}" 
-                           onchange="messageManager.toggleGroup('${index}')">
-                    <label for="group-${index}"> ${name}</label>
-                </div>
-            `).join('');
+        // פשוט לוקח את כל הערכים מעמודה B
+        const groups = [];
+        for (let row of json.table.rows) {
+            if (row.c && row.c[1] && row.c[1].v) {
+                groups.push(row.c[1].v);
+            }
         }
+        
+        // מציג את הקבוצות
+        const container = document.querySelector('.neighborhood-list');
+        container.innerHTML = groups.map((name, i) => `
+            <div class="group-item">
+                <input type="checkbox" id="group-${i}">
+                <label for="group-${i}">${name}</label>
+            </div>
+        `).join('');
 
     } catch (error) {
-        console.error('Error loading groups:', error);
-        alert('שגיאה בטעינת רשימת הקבוצות');
+        console.log('Error:', error);  // לא מציג הודעת שגיאה למשתמש
     }
 }
 
