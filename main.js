@@ -54,7 +54,7 @@ async loadGroups() {
             let cellIndex = 0;
 
             for (let colIndex = 0; colIndex < numCols; colIndex++) {
-                if (row.c && row.c[cellIndex] && row.c[cellIndex].v !== null && row.c[cellIndex].v !== undefined) {
+                if (row.c && row.c[cellIndex] && (row.c[cellIndex].v !== null && row.c[cellIndex].v !== undefined)) {
                     cells[colIndex] = row.c[cellIndex];
                     cellIndex++;
                 } else {
@@ -70,7 +70,16 @@ async loadGroups() {
 
             if (nameCell && nameCell.v) {
                 const name = nameCell.v;
-                let id = idCell && idCell.v ? idCell.v : null;
+                let id = null;
+
+                if (idCell) {
+                    // Check both 'v' and 'f' properties
+                    if (idCell.v !== null && idCell.v !== undefined) {
+                        id = idCell.v;
+                    } else if (idCell.f !== null && idCell.f !== undefined) {
+                        id = idCell.f;
+                    }
+                }
 
                 // Log the ID for debugging purposes
                 console.log(`Raw ID value for group '${name}':`, id);
@@ -89,6 +98,32 @@ async loadGroups() {
                 groups.push({ name, id });
             }
         });
+
+        // Log to check all loaded groups
+        console.log('All loaded groups:', groups);
+
+        // Sort groups alphabetically by name
+        this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Render groups in the HTML
+        const container = document.querySelector('.neighborhood-list');
+        if (container) {
+            container.innerHTML = this.groups.map((group, index) => `
+                <div class="group-item">
+                    <input type="checkbox" 
+                           id="group-${index}" 
+                           onchange="messageManager.toggleGroup(${index})">
+                    <label for="group-${index}"> ${group.name}</label>
+                </div>
+            `).join('');
+        }
+
+    } catch (error) {
+        console.error('Error loading groups:', error);
+        alert('שגיאה בטעינת רשימת הקבוצות');
+    }
+}
+
 
         // Log to check all loaded groups
         console.log('All loaded groups:', groups);
