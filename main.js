@@ -46,20 +46,8 @@ class MessageManager {
             const groups = [];
 
             json.table.rows.forEach((row, index) => {
-                // Reconstruct the cells array with nulls for missing cells
-                const cells = new Array(numCols).fill(null);
-                let cellIndex = 0;
-
-                for (let colIndex = 0; colIndex < numCols; colIndex++) {
-                    if (row.c && row.c[cellIndex] && (row.c[cellIndex].v !== null && row.c[cellIndex].v !== undefined)) {
-                        cells[colIndex] = row.c[cellIndex];
-                        cellIndex++;
-                    } else {
-                        cells[colIndex] = null;
-                    }
-                }
-
-                console.log('Processing row:', index, cells);
+                // Extract the cells array directly from the row
+                const cells = row.c || [];
 
                 // Extract name and ID from the correct columns
                 const nameCell = cells[1]; // Column B
