@@ -51,19 +51,18 @@ async loadGroups() {
             // Check if the row has a value in column B (the group name)
             if (row.c && row.c[1] && row.c[1].v) {
                 const name = row.c[1].v;
-                const id = row.c[3] ? row.c[3].v : null;  // Get ID if it exists, else set to null
+                const id = row.c[3] ? row.c[3].v : null;  // Get ID from column D if it exists, else set to null
 
+                // Log the group for debugging
                 console.log(`Found group: name=${name}, id=${id}`);
 
-                // Skip the header row if it contains 'שכונה'
-                if (index > 0) {  // Start from the second row, assuming row 0 is the header
-                    groups.push({ name, id });
-                }
+                // Push all rows with a valid name in column B into groups array, regardless of ID format
+                groups.push({ name, id });
             }
         });
 
-        // Log to check loaded groups
-        console.log('Loaded groups:', groups);
+        // Log to check all loaded groups
+        console.log('All loaded groups:', groups);
 
         // Sort groups alphabetically by name
         this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
@@ -86,6 +85,7 @@ async loadGroups() {
         alert('שגיאה בטעינת רשימת הקבוצות');
     }
 }
+
 
 
     // חיפוש קבוצות (אם נדרש)
