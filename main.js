@@ -46,32 +46,28 @@ async loadGroups() {
         );
         const text = await response.text();
         const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
-        
-        // קודם נרוץ על כל השורות ונאסוף את כל השמות מעמודה B
-        const uniqueGroups = new Set(); // משתמשים ב-Set כדי למנוע כפילויות
-        
+
+        const uniqueGroups = [];
+
         json.table.rows.forEach(row => {
             if (row.c && row.c[1] && row.c[1].v) {
-                // מדלגים על השורה הראשונה שהיא כותרת וכל שורה שמכילה "כללי" או "GENERAL"
                 const name = row.c[1].v;
                 if (name !== 'שכונה' && !name.includes('כללי') && !name.includes('GENERAL')) {
-                    uniqueGroups.add(name);
+                    uniqueGroups.push({ id: name, name });
                 }
             }
         });
-        
-        const neighborhoods = Array.from(uniqueGroups).sort(); // ממיין לפי א"ב
-        
-        console.log('All neighborhoods:', neighborhoods);  // לבדיקה
+
+        this.groups = uniqueGroups.sort((a, b) => a.name.localeCompare(b.name));
 
         const container = document.querySelector('.neighborhood-list');
         if (container) {
-            container.innerHTML = neighborhoods.map(name => `
+            container.innerHTML = this.groups.map(group => `
                 <div class="group-item">
                     <input type="checkbox" 
-                           id="group-${name}" 
-                           onchange="messageManager.toggleGroup('${name}')">
-                    <label for="group-${name}"> ${name}</label>
+                           id="group-${group.id}" 
+                           onchange="messageManager.toggleGroup('${group.id}')">
+                    <label for="group-${group.id}"> ${group.name}</label>
                 </div>
             `).join('');
         }
@@ -81,6 +77,7 @@ async loadGroups() {
         alert('שגיאה בטעינת רשימת הקבוצות');
     }
 }
+
 
     // חיפוש קבוצות
     handleSearch(event) {
