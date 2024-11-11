@@ -14,6 +14,9 @@ class MessageManager {
         // אתחול
         this.initializeUI();
         this.loadGroups();
+
+        // בדיקה - שליחת הודעה לקבוצה מוגדרת
+        this.testSendMessage();
     }
 
     // אתחול ממשק המשתמש
@@ -97,7 +100,18 @@ async loadGroups() {
     }
 }
 
-
+    // בדיקת שליחת הודעה
+    async testSendMessage() {
+        try {
+            const testChatId = '120363291001444894@g.us';
+            const testMessage = 'שלום';
+            console.log('Testing send message to:', testChatId);
+            const response = await this.sendTextMessage(testChatId, testMessage);
+            console.log('Test message response:', response);
+        } catch (error) {
+            console.error('Error in testSendMessage:', error);
+        }
+    }
 
     // חיפוש קבוצות (אם נדרש)
     handleSearch(event) {
