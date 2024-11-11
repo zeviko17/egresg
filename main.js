@@ -14,9 +14,6 @@ class MessageManager {
         // אתחול
         this.initializeUI();
         this.loadGroups();
-
-        // בדיקה - שליחת הודעה לקבוצה מוגדרת
-        this.testSendMessage();
     }
 
     // אתחול ממשק המשתמש
@@ -37,130 +34,90 @@ class MessageManager {
     }
 
     // טעינת קבוצות מגוגל שיטס
-async loadGroups() {
-    try {
-        const response = await fetch(
-            `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${SHEETS_CONFIG.tabName}`
-        );
-        const text = await response.text();
-        const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
+    async loadGroups() {
+        try {
+            const response = await fetch(
+                `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${SHEETS_CONFIG.tabName}`
+            );
+            const text = await response.text();
+            const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
 
-        const numCols = json.table.cols.length;
-        const groups = [];
+            const numCols = json.table.cols.length;
+            const groups = [];
 
-        json.table.rows.forEach((row, index) => {
-            // Reconstruct the cells array with nulls for missing cells
-            const cells = new Array(numCols).fill(null);
-            let cellIndex = 0;
+            json.table.rows.forEach((row, index) => {
+                // Reconstruct the cells array with nulls for missing cells
+                const cells = new Array(numCols).fill(null);
+                let cellIndex = 0;
 
-            for (let colIndex = 0; colIndex < numCols; colIndex++) {
-                if (row.c && row.c[cellIndex] && (row.c[cellIndex].v !== null && row.c[cellIndex].v !== undefined)) {
-                    cells[colIndex] = row.c[cellIndex];
-                    cellIndex++;
-                } else {
-                    cells[colIndex] = null;
-                }
-            }
-
-            console.log('Processing row:', index, cells);
-
-            // Extract name and ID from the correct columns
-            const nameCell = cells[1]; // Column B
-            const idCell = cells[3];   // Column D
-
-            if (nameCell && (nameCell.v || nameCell.f)) {
-                const name = nameCell.v || nameCell.f;
-                let id = null;
-
-                if (idCell) {
-                    // Check both 'v' and 'f' properties
-                    if (idCell.v !== null && idCell.v !== undefined) {
-                        id = idCell.v;
-                    } else if (idCell.f !== null && idCell.f !== undefined) {
-                        id = idCell.f;
+                for (let colIndex = 0; colIndex < numCols; colIndex++) {
+                    if (row.c && row.c[cellIndex] && (row.c[cellIndex].v !== null && row.c[cellIndex].v !== undefined)) {
+                        cells[colIndex] = row.c[cellIndex];
+                        cellIndex++;
+                    } else {
+                        cells[colIndex] = null;
                     }
                 }
 
-                // Log the ID for debugging purposes
-                console.log(`Raw ID value for group '${name}':`, id);
+                console.log('Processing row:', index, cells);
 
-                // Check if ID is valid and convert to string if necessary
-                if (id) {
-                    id = id.toString().trim();
-                    console.log(`Processed ID for group '${name}':`, id);
-                } else {
-                    console.warn(`No valid ID found for group '${name}', setting ID to null.`);
+                // Extract name and ID from the correct columns
+                const nameCell = cells[1]; // Column B
+                const idCell = cells[3];   // Column D
+
+                if (nameCell && (nameCell.v || nameCell.f)) {
+                    const name = nameCell.v || nameCell.f;
+                    let id = null;
+
+                    if (idCell) {
+                        // Check both 'v' and 'f' properties
+                        if (idCell.v !== null && idCell.v !== undefined) {
+                            id = idCell.v;
+                        } else if (idCell.f !== null && idCell.f !== undefined) {
+                            id = idCell.f;
+                        }
+                    }
+
+                    // Log the ID for debugging purposes
+                    console.log(`Raw ID value for group '${name}':`, id);
+
+                    // Check if ID is valid and convert to string if necessary
+                    if (id) {
+                        id = id.toString().trim();
+                        console.log(`Processed ID for group '${name}':`, id);
+                    } else {
+                        console.warn(`No valid ID found for group '${name}', setting ID to null.`);
+                    }
+
+                    // Log the group for debugging
+                    console.log(`Found group: name=${name}, id=${id}`);
+
+                    groups.push({ name, id });
                 }
+            });
 
-                // Log the group for debugging
-                console.log(`Found group: name=${name}, id=${id}`);
+            // Log to check all loaded groups
+            console.log('All loaded groups:', groups);
 
-                groups.push({ name, id });
+            // Sort groups alphabetically by name
+            this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
+
+            // Render groups in the HTML
+            const container = document.querySelector('.neighborhood-list');
+            if (container) {
+                container.innerHTML = this.groups.map((group, index) => `
+                    <div class="group-item">
+                        <input type="checkbox" 
+                               id="group-${index}" 
+                               onchange="messageManager.toggleGroup(${index})">
+                        <label for="group-${index}"> ${group.name}</label>
+                    </div>
+                `).join('');
             }
-        });
 
-        // Log to check all loaded groups
-        console.log('All loaded groups:', groups);
-
-        // Sort groups alphabetically by name
-        this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
-
-        // Render groups in the HTML
-        const container = document.querySelector('.neighborhood-list');
-        if (container) {
-            container.innerHTML = this.groups.map((group, index) => `
-                <div class="group-item">
-                    <input type="checkbox" 
-                           id="group-${index}" 
-                           onchange="messageManager.toggleGroup(${index})">
-                    <label for="group-${index}"> ${group.name}</label>
-                </div>
-            `).join('');
-        }
-
-    } catch (error) {
-        console.error('Error loading groups:', error);
-        alert('שגיאה בטעינת רשימת הקבוצות');
-    }
-}
-
-
-        // Log to check all loaded groups
-        console.log('All loaded groups:', groups);
-
-        // Sort groups alphabetically by name
-        this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
-
-        // Render groups in the HTML
-        const container = document.querySelector('.neighborhood-list');
-        if (container) {
-            container.innerHTML = this.groups.map((group, index) => `
-                <div class="group-item">
-                    <input type="checkbox" 
-                           id="group-${index}" 
-                           onchange="messageManager.toggleGroup(${index})">
-                    <label for="group-${index}"> ${group.name}</label>
-                </div>
-            `).join('');
-        }
-
-    } catch (error) {
-        console.error('Error loading groups:', error);
-        alert('שגיאה בטעינת רשימת הקבוצות');
-    }
-}
-
-
-    // בדיקת שליחת הודעה
-    async testSendMessage() {
-        try {
-            const testChatId = '120363291001444894@g.us';
-            const testMessage = 'שלום';
-            console.log('Testing send message to:', testChatId);
-            const response = await this.sendTextMessage(testChatId, testMessage);
-            console.log('Test message response:', response);
         } catch (error) {
-            console.error('Error in testSendMessage:', error);
+            console.error('Error loading groups:', error);
+            alert('שגיאה בטעינת רשימת הקבוצות');
         }
     }
 
