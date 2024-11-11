@@ -45,16 +45,32 @@ async loadGroups() {
         const text = await response.text();
         const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
 
-        // Initialize the groups array
+        const numCols = json.table.cols.length;
         const groups = [];
 
         json.table.rows.forEach((row, index) => {
-            console.log('Processing row:', index, row.c);
+            // Reconstruct the cells array with nulls for missing cells
+            const cells = new Array(numCols).fill(null);
+            let cellIndex = 0;
 
-            // Check if the row has a value in column B (the group name)
-            if (row.c && row.c[1] && row.c[1].v) {
-                const name = row.c[1].v;
-                let id = row.c[3] ? row.c[3].v : null;  // Get ID from column D if it exists, else set to null
+            for (let colIndex = 0; colIndex < numCols; colIndex++) {
+                if (row.c && row.c[cellIndex] && row.c[cellIndex].v !== null && row.c[cellIndex].v !== undefined) {
+                    cells[colIndex] = row.c[cellIndex];
+                    cellIndex++;
+                } else {
+                    cells[colIndex] = null;
+                }
+            }
+
+            console.log('Processing row:', index, cells);
+
+            // Extract name and ID from the correct columns
+            const nameCell = cells[1]; // Column B
+            const idCell = cells[3];   // Column D
+
+            if (nameCell && nameCell.v) {
+                const name = nameCell.v;
+                let id = idCell && idCell.v ? idCell.v : null;
 
                 // Log the ID for debugging purposes
                 console.log(`Raw ID value for group '${name}':`, id);
@@ -70,7 +86,6 @@ async loadGroups() {
                 // Log the group for debugging
                 console.log(`Found group: name=${name}, id=${id}`);
 
-                // Push all rows with a valid name in column B into groups array, regardless of ID format
                 groups.push({ name, id });
             }
         });
@@ -99,6 +114,7 @@ async loadGroups() {
         alert('שגיאה בטעינת רשימת הקבוצות');
     }
 }
+
 
     // בדיקת שליחת הודעה
     async testSendMessage() {
