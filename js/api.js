@@ -3,9 +3,11 @@ class WhatsAppAPI {
         this.config = config;
     }
 
+    // פונקציה לשליחת הודעת טקסט
     async sendMessage(groupId, message) {
-        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
-        
+        // כתובת URL לשליחת הודעת טקסט
+        const url = 'https://7103.api.greenapi.com/waInstance7103962196/sendMessage/64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae';
+
         const payload = {
             chatId: groupId,
             message: message
@@ -31,14 +33,16 @@ class WhatsAppAPI {
         }
     }
 
+    // פונקציה לשליחת קובץ עם כיתוב
     async sendFile(groupId, message, fileUrl, fileName) {
-        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendFile}/${this.config.token}`;
-        
+        // כתובת URL לשליחת קובץ
+        const url = 'https://7103.api.greenapi.com/waInstance7103962196/sendFileByUrl/64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae';
+
         const payload = {
             chatId: groupId,
-            caption: message,
             urlFile: fileUrl,
-            fileName: fileName
+            fileName: fileName,
+            caption: message
         };
 
         try {
@@ -61,3 +65,6 @@ class WhatsAppAPI {
         }
     }
 }
+
+// יצוא המחלקה לשימוש בקבצים אחרים
+export default WhatsAppAPI;
