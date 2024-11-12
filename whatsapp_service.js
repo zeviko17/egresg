@@ -100,6 +100,38 @@ class WhatsAppAPI {
        }
    }
 
+   async sendTextMessage(chatId, messageText) {
+       const sendMessageUrl = "https://7103.api.greenapi.com/waInstance7103962196/sendMessage/64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae";
+
+       const payload = {
+           chatId: chatId,
+           message: messageText
+       };
+
+       try {
+           console.log('Sending message to:', chatId);
+           const response = await fetch(sendMessageUrl, {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json'
+               },
+               body: JSON.stringify(payload)
+           });
+
+           if (!response.ok) {
+               throw new Error(`HTTP error! status: ${response.status}`);
+           }
+
+           const data = await response.json();
+           console.log('Response:', data);
+           return data;
+
+       } catch (error) {
+           console.error('Error sending message:', error);
+           throw error;
+       }
+   }
+
    // עזרה בפורמט של מזהה קבוצה
    validateGroupId(groupId) {
        if (!groupId) return false;
