@@ -41,7 +41,7 @@ class WhatsAppAPI {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                mode: 'no-cors',
+                mode: 'no-cors',  // הוספנו את זה לפתרון בעיית CORS
                 body: JSON.stringify(payload)
             });
 
@@ -74,7 +74,7 @@ class WhatsAppAPI {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                mode: 'no-cors',
+                mode: 'no-cors',  // הוספנו את זה לפתרון בעיית CORS
                 body: JSON.stringify(payload)
             });
 
@@ -85,35 +85,6 @@ class WhatsAppAPI {
         } catch (error) {
             console.error('Error sending file:', error);
             throw error;
-        }
-    }
-}
-
-    // פונקציה לשליחת קובץ עם כיתוב
-    async sendFile(groupId, message, fileUrl, fileName) {
-        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendFile}/${this.config.token}`;
-
-        const payload = {
-            chatId: this.formatChatId(groupId),
-            urlFile: fileUrl,
-            fileName: fileName,
-            caption: message
-        };
-
-        try {
-            console.log('Sending file to:', groupId);
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            return await this.handleAPIResponse(response, 'Send file');
-        } catch (error) {
-            console.error('Error sending file:', error);
-            throw new Error(`Failed to send file: ${error.message}`);
         }
     }
 }
