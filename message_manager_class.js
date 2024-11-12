@@ -1,4 +1,4 @@
-// CONFIG
+// CONFIG 0.1
 const API_CONFIG = {
     instanceId: '7103962196',
     token: '64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae',
@@ -48,31 +48,46 @@ class WhatsAppAPI {
     }
 
     // פונקציה לשליחת הודעת טקסט
-    async sendMessage(groupId, message) {
-        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
+ async sendMessage(groupId, message) {
+    const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
 
-        const payload = {
-            chatId: this.formatChatId(groupId),
-            message: message
-        };
+    // הוספת לוג לבדיקת ה-URL והפיילוד
+    console.log('Request URL:', url);
+    console.log('Request Payload:', {
+        chatId: this.formatChatId(groupId),
+        message: message
+    });
 
-        try {
-            console.log('Sending message to:', groupId);
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
+    const payload = {
+        chatId: this.formatChatId(groupId),
+        message: message
+    };
 
-            return await this.handleAPIResponse(response, 'Send message');
-        } catch (error) {
-            console.error('Error sending message:', error);
-            throw new Error(`Failed to send message: ${error.message}`);
+    try {
+        console.log('Sending message to:', groupId);
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        // הוספת לוג לתשובה
+        console.log('Response:', response);
+        
+        if (!response.ok) {
+            const responseText = await response.text();
+            console.log('Error Response:', responseText);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    }
 
+        return await this.handleAPIResponse(response, 'Send message');
+    } catch (error) {
+        console.error('Error details:', error);
+        throw error;
+    }
+}
     // פונקציה לשליחת קובץ עם כיתוב
     async sendFile(groupId, message, fileUrl, fileName) {
         const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendFile}/${this.config.token}`;
