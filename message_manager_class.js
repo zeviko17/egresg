@@ -1,93 +1,9 @@
-// CONFIG
-const API_CONFIG = {
-    instanceId: '7103962196',
-    token: '64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae',
-    baseUrl: 'https://7103.api.greenapi.com/waInstance/',
-    
-    endpoints: {
-        sendMessage: 'sendMessage',
-        sendFile: 'sendFileByUrl',
-        sendVideo: 'sendFileByUpload'
-    },
-
-    // זמן המתנה בין הודעות (10 שניות)
-    messageDelay: 10000
-};
-
 // הגדרות Google Sheets
 const SHEETS_CONFIG = {
     sheetId: '10IkkOpeD_VoDpqMN23QFxGyuW0_p0TZx4NpWNcMN-Ss',
     tabName: 'קבוצות להודעות'
 };
 
-// WhatsApp API Class
-class WhatsAppAPI {
-    constructor(config) {
-        this.config = config;
-    }
-
-    async sendMessage(groupId, message) {
-        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
-        
-        const payload = {
-            chatId: groupId.includes('@') ? groupId : `${groupId}@g.us`,
-            message: message
-        };
-
-        try {
-            console.log('Sending message to:', groupId, 'with payload:', payload);
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                mode: 'no-cors',  // הוספנו את זה לפתרון בעיית CORS
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-            console.log('Response:', data);
-            return data;
-
-        } catch (error) {
-            console.error('Error sending message:', error);
-            throw error;
-        }
-    }
-
-    async sendFile(groupId, message, fileUrl, fileName) {
-        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendFile}/${this.config.token}`;
-        
-        const chatId = groupId.includes('@') ? groupId : `${groupId}@g.us`;
-        
-        const payload = {
-            chatId: chatId,
-            urlFile: fileUrl,
-            fileName: fileName,
-            caption: message
-        };
-
-        try {
-            console.log('Sending file to:', groupId, 'with payload:', payload);
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                mode: 'no-cors',  // הוספנו את זה לפתרון בעיית CORS
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-            console.log('Response:', data);
-            return data;
-
-        } catch (error) {
-            console.error('Error sending file:', error);
-            throw error;
-        }
-    }
-}
 // מחלקה לניהול המצב הכללי של האפליקציה
 class MessageManager {
     constructor() {
@@ -98,10 +14,6 @@ class MessageManager {
         this.isSending = false;         // האם כרגע בתהליך שליחה
         this.shouldStop = false;        // האם לעצור את השליחה
         
-        // קבועים
-        this.API_CONFIG = API_CONFIG;
-        this.whatsAppAPI = new WhatsAppAPI(this.API_CONFIG);
-
         // אתחול
         this.initializeUI();
         this.loadGroups();
@@ -159,14 +71,14 @@ class MessageManager {
                         id = idCell.v || idCell.f;
                         if (id) {
                             id = id.toString().trim();
+                            // וידוא שה-ID תקין
+                            if (window.whatsappAPI.validateGroupId(id)) {
+                                console.log(`Loading group: ${name} with ID: ${id}`);
+                                groups.push({ name, id });
+                            } else {
+                                console.warn(`Invalid group ID format for group '${name}': ${id}`);
+                            }
                         }
-                    }
-
-                    if (id) {
-                        console.log(`Loading group: ${name} with ID: ${id}`);
-                        groups.push({ name, id });
-                    } else {
-                        console.warn(`Skipping group '${name}' - missing ID`);
                     }
                 }
             });
@@ -214,200 +126,198 @@ class MessageManager {
             </div>
         `).join('');
     }
-
     // טיפול בבחירת קבצים
-    handleFileSelect(event) {
-        const maxFiles = 10;
-        const maxFileSize = 16 * 1024 * 1024; // 16MB
-        const newFiles = Array.from(event.target.files);
-        
-        // בדיקת מספר קבצים
-        if (this.files.length + newFiles.length > maxFiles) {
-            alert(`ניתן להעלות עד ${maxFiles} קבצים`);
-            return;
-        }
+   handleFileSelect(event) {
+       const maxFiles = 10;
+       const maxFileSize = 16 * 1024 * 1024; // 16MB
+       const newFiles = Array.from(event.target.files);
+       
+       // בדיקת מספר קבצים
+       if (this.files.length + newFiles.length > maxFiles) {
+           alert(`ניתן להעלות עד ${maxFiles} קבצים`);
+           return;
+       }
 
-        // בדיקת גודל קבצים
-        for (const file of newFiles) {
-            if (file.size > maxFileSize) {
-                alert(`הקובץ ${file.name} גדול מדי. הגודל המקסימלי המותר הוא 16MB`);
-                return;
-            }
-        }
+       // בדיקת גודל קבצים
+       for (const file of newFiles) {
+           if (file.size > maxFileSize) {
+               alert(`הקובץ ${file.name} גדול מדי. הגודל המקסימלי המותר הוא 16MB`);
+               return;
+           }
+       }
 
-        this.files = this.files.concat(newFiles);
-        this.renderFilesPreviews();
-        this.validateForm();
-    }
-// הצגת תצוגה מקדימה של קבצים
-    renderFilesPreviews() {
-        const container = document.getElementById('image-preview');
-        if (!container) return;
+       this.files = this.files.concat(newFiles);
+       this.renderFilesPreviews();
+       this.validateForm();
+   }
 
-        container.innerHTML = this.files.map((file, index) => `
-            <div class="file-preview">
-                ${file.type.startsWith('image/') 
-                    ? `<img src="${URL.createObjectURL(file)}" alt="${file.name}" class="preview-image">`
-                    : `<div class="file-icon">📁 ${file.name}</div>`
-                }
-                <div class="remove-file" onclick="messageManager.removeFile(${index})">×</div>
-            </div>
-        `).join('');
-    }
+   // הצגת תצוגה מקדימה של קבצים
+   renderFilesPreviews() {
+       const container = document.getElementById('image-preview');
+       if (!container) return;
 
-    // הסרת קובץ
-    removeFile(index) {
-        this.files.splice(index, 1);
-        this.renderFilesPreviews();
-        this.validateForm();
-    }
+       container.innerHTML = this.files.map((file, index) => `
+           <div class="file-preview">
+               ${file.type.startsWith('image/') 
+                   ? `<img src="${URL.createObjectURL(file)}" alt="${file.name}" class="preview-image">`
+                   : `<div class="file-icon">📁 ${file.name}</div>`
+               }
+               <div class="remove-file" onclick="messageManager.removeFile(${index})">×</div>
+           </div>
+       `).join('');
+   }
 
-    // התחלת תהליך השליחה
-async startSending() {
-    // נריץ קודם את הטסט
-    try {
-        console.log('Running test message first...');
-        const testChatId = '120363291001444894@g.us';
-        const testMessage = 'שלום';
-        console.log('Testing send message to:', testChatId);
-        const testResponse = await this.whatsAppAPI.sendMessage(testChatId, testMessage);
-        console.log('Test message response:', testResponse);
-    } catch (error) {
-        console.error('Test message failed:', error);
-    }
+   // הסרת קובץ
+   removeFile(index) {
+       this.files.splice(index, 1);
+       this.renderFilesPreviews();
+       this.validateForm();
+   }
 
-    // המשך הקוד המקורי של startSending
-    if (!this.validateForm() || this.isSending) return;
-     const messageInput = document.getElementById('message');
-    if (!messageInput) return;
+   // התחלת תהליך השליחה
+   async startSending() {
+       if (!this.validateForm() || this.isSending) return;
 
-    const message = messageInput.value.trim();
-    const totalGroups = this.selectedGroups.size;
-    let sent = 0;
-    let errors = 0;
+       const messageInput = document.getElementById('message');
+       if (!messageInput) return;
 
-    this.isSending = true;
-    this.shouldStop = false;
-    this.updateUI(true);
+       const message = messageInput.value.trim();
+       const totalGroups = this.selectedGroups.size;
+       let sent = 0;
+       let errors = 0;
 
-    try {
-        for (const groupIndex of this.selectedGroups) {
-            if (this.shouldStop) break;
+       this.isSending = true;
+       this.shouldStop = false;
+       this.updateUI(true);
 
-            const group = this.groups[groupIndex];
-            const chatId = `${group.id}@g.us`;  // הוספת @g.us כאן
-            console.log(`Preparing to send to group: ${group.name} (${chatId})`);
+       try {
+           for (const groupIndex of this.selectedGroups) {
+               if (this.shouldStop) break;
 
-            try {
-                // שליחת הודעת טקסט
-                await this.whatsAppAPI.sendMessage(chatId, message);  // שימוש ב-chatId המלא
-                console.log(`Successfully sent message to ${group.name}`);
+               const group = this.groups[groupIndex];
+               console.log(`Preparing to send to group: ${group.name} (${group.id})`);
 
-                sent++;
-                this.updateProgress(sent, totalGroups);
+               try {
+                   // שליחת הודעת טקסט
+                   await window.whatsappAPI.sendMessage(group.id, message);
+                   console.log(`Successfully sent message to ${group.name}`);
 
-                // המתנה בין הודעות
-                if (!this.shouldStop && sent < totalGroups) {
-                    await new Promise(resolve => setTimeout(resolve, this.API_CONFIG.messageDelay));
-                }
-            } catch (error) {
-                console.error(`Error sending to group ${group.name}:`, error);
-                errors++;
-            }
-        }
-    } finally {
-        this.isSending = false;
-        this.updateUI(false);
-        
-        if (this.shouldStop) {
-            alert('השליחה הופסקה');
-        } else {
-            const summary = `השליחה הושלמה!\n` +
-                          `נשלח בהצלחה: ${sent} קבוצות\n` +
-                          `שגיאות: ${errors} קבוצות`;
-            alert(summary);
-        }
-    }
-}
-    // עדכון התקדמות
-    updateProgress(sent, total) {
-        const progressBar = document.querySelector('.progress-bar');
-        const statusText = document.querySelector('.status-text');
-        
-        if (progressBar) {
-            const percentage = (sent / total) * 100;
-            progressBar.style.width = `${percentage}%`;
-        }
-        
-        if (statusText) {
-            statusText.textContent = `${sent}/${total} קבוצות`;
-        }
-    }
+                   // שליחת קבצים אם יש
+                   if (this.files.length > 0) {
+                       for (const file of this.files) {
+                           const fileUrl = URL.createObjectURL(file);
+                           await window.whatsappAPI.sendFile(group.id, '', fileUrl, file.name);
+                           URL.revokeObjectURL(fileUrl);
+                           console.log(`Successfully sent file ${file.name} to ${group.name}`);
+                       }
+                   }
 
-    // עדכון ממשק המשתמש
-    updateUI(isSending) {
-        const progressArea = document.getElementById('progress');
-        const sendButton = document.querySelector('.send-button');
-        const inputs = document.querySelectorAll('input, textarea');
-        
-        if (progressArea) {
-            progressArea.style.display = isSending ? 'block' : 'none';
-        }
-        
-        if (sendButton) {
-            sendButton.disabled = isSending;
-            sendButton.textContent = isSending ? 'שולח...' : 'שלח הודעה';
-        }
+                   sent++;
+                   this.updateProgress(sent, totalGroups);
 
-        inputs.forEach(input => {
-            if (input.id !== 'stopButton') {
-                input.disabled = isSending;
-            }
-        });
-    }
+                   // המתנה בין הודעות
+                   if (!this.shouldStop && sent < totalGroups) {
+                       await new Promise(resolve => setTimeout(resolve, API_CONFIG.messageDelay));
+                   }
+               } catch (error) {
+                   console.error(`Error sending to group ${group.name}:`, error);
+                   errors++;
+               }
+           }
+       } finally {
+           this.isSending = false;
+           this.updateUI(false);
+           
+           if (this.shouldStop) {
+               alert('השליחה הופסקה');
+           } else {
+               const summary = `השליחה הושלמה!\n` +
+                             `נשלח בהצלחה: ${sent} קבוצות\n` +
+                             `שגיאות: ${errors} קבוצות`;
+               alert(summary);
+           }
+       }
+   }
 
-    // בדיקת תקינות הטופס
-    validateForm() {
-        const messageInput = document.getElementById('message');
-        const sendButton = document.querySelector('.send-button');
-        
-        if (!messageInput || !sendButton) return false;
+   // עדכון התקדמות
+   updateProgress(sent, total) {
+       const progressBar = document.querySelector('.progress-bar');
+       const statusText = document.querySelector('.status-text');
+       
+       if (progressBar) {
+           const percentage = (sent / total) * 100;
+           progressBar.style.width = `${percentage}%`;
+       }
+       
+       if (statusText) {
+           statusText.textContent = `${sent}/${total} קבוצות`;
+       }
+   }
 
-        const isValid = messageInput.value.trim().length > 0 && this.selectedGroups.size > 0;
-        sendButton.disabled = !isValid;
-        return isValid;
-    }
+   // עדכון ממשק המשתמש
+   updateUI(isSending) {
+       const progressArea = document.getElementById('progress');
+       const sendButton = document.querySelector('.send-button');
+       const inputs = document.querySelectorAll('input, textarea');
+       
+       if (progressArea) {
+           progressArea.style.display = isSending ? 'block' : 'none';
+       }
+       
+       if (sendButton) {
+           sendButton.disabled = isSending;
+           sendButton.textContent = isSending ? 'שולח...' : 'שלח הודעה';
+       }
 
-    // החלפת מצב בחירה של קבוצה
-    toggleGroup(groupIndex) {
-        groupIndex = parseInt(groupIndex);
-        if (this.selectedGroups.has(groupIndex)) {
-            this.selectedGroups.delete(groupIndex);
-        } else {
-            this.selectedGroups.add(groupIndex);
-        }
-        this.validateForm();
-    }
+       inputs.forEach(input => {
+           if (input.id !== 'stopButton') {
+               input.disabled = isSending;
+           }
+       });
+   }
 
-    // בחירת כל הקבוצות
-    selectAll() {
-        this.groups.forEach((group, index) => this.selectedGroups.add(index));
-        this.renderFilteredGroups(this.groups);
-        this.validateForm();
-    }
+   // בדיקת תקינות הטופס
+   validateForm() {
+       const messageInput = document.getElementById('message');
+       const sendButton = document.querySelector('.send-button');
+       
+       if (!messageInput || !sendButton) return false;
 
-    // ניקוי כל הבחירות
-    deselectAll() {
-        this.selectedGroups.clear();
-        this.renderFilteredGroups(this.groups);
-        this.validateForm();
-    }
+       const isValid = messageInput.value.trim().length > 0 && this.selectedGroups.size > 0;
+       sendButton.disabled = !isValid;
+       return isValid;
+   }
 
-    // עצירת תהליך השליחה
-    stopSending() {
-        this.shouldStop = true;
-        console.log('Stopping sending process...');
-    }
+   // החלפת מצב בחירה של קבוצה
+   toggleGroup(groupIndex) {
+       groupIndex = parseInt(groupIndex);
+       if (this.selectedGroups.has(groupIndex)) {
+           this.selectedGroups.delete(groupIndex);
+       } else {
+           this.selectedGroups.add(groupIndex);
+       }
+       this.validateForm();
+   }
+
+   // בחירת כל הקבוצות
+   selectAll() {
+       this.groups.forEach((group, index) => this.selectedGroups.add(index));
+       this.renderFilteredGroups(this.groups);
+       this.validateForm();
+   }
+
+   // ניקוי כל הבחירות
+   deselectAll() {
+       this.selectedGroups.clear();
+       this.renderFilteredGroups(this.groups);
+       this.validateForm();
+   }
+
+   // עצירת תהליך השליחה
+   stopSending() {
+       this.shouldStop = true;
+       console.log('Stopping sending process...');
+   }
 }
 
 // יצירת אובייקט המנהל והתחלת האפליקציה
