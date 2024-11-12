@@ -1,4 +1,4 @@
-// CONFIG 0.1
+// CONFIG
 const API_CONFIG = {
     instanceId: '7103962196',
     token: '64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae',
