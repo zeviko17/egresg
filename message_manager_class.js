@@ -26,68 +26,68 @@ class WhatsAppAPI {
         this.config = config;
     }
 
-    // פונקציה לפורמט של מזהה צ'אט
-    formatChatId(chatId) {
-        if (chatId.includes('@')) {
-            return chatId;
+    async sendMessage(groupId, message) {
+        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
+        
+        // שימוש באותו מבנה בדיוק כמו בטסט שעבד
+        const payload = {
+            chatId: groupId.includes('@') ? groupId : `${groupId}@g.us`,
+            message: message
+        };
+
+        try {
+            console.log('Sending message to:', groupId, 'with payload:', payload);
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            console.log('Response:', data);
+            return data;
+
+        } catch (error) {
+            console.error('Error sending message:', error);
+            throw error;
         }
-        return `${chatId}@g.us`;
     }
 
-    // פונקציה לבדיקת תגובת ה-API
-    async handleAPIResponse(response, action) {
-        const data = await response.json();
+    async sendFile(groupId, message, fileUrl, fileName) {
+        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendFile}/${this.config.token}`;
         
-        if (!response.ok) {
-            console.error(`${action} failed:`, data);
-            throw new Error(`WhatsApp API Error: ${data.message || response.statusText}`);
-        }
-
-        console.log(`${action} completed successfully:`, data);
-        return data;
-    }
-
-    // פונקציה לשליחת הודעת טקסט
- async sendMessage(groupId, message) {
-    const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
-
-    // הוספת לוג לבדיקת ה-URL והפיילוד
-    console.log('Request URL:', url);
-    console.log('Request Payload:', {
-        chatId: this.formatChatId(groupId),
-        message: message
-    });
-
-    const payload = {
-        chatId: this.formatChatId(groupId),
-        message: message
-    };
-
-    try {
-        console.log('Sending message to:', groupId);
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        });
-
-        // הוספת לוג לתשובה
-        console.log('Response:', response);
+        const chatId = groupId.includes('@') ? groupId : `${groupId}@g.us`;
         
-        if (!response.ok) {
-            const responseText = await response.text();
-            console.log('Error Response:', responseText);
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const payload = {
+            chatId: chatId,
+            urlFile: fileUrl,
+            fileName: fileName,
+            caption: message
+        };
 
-        return await this.handleAPIResponse(response, 'Send message');
-    } catch (error) {
-        console.error('Error details:', error);
-        throw error;
+        try {
+            console.log('Sending file to:', groupId, 'with payload:', payload);
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            console.log('Response:', data);
+            return data;
+
+        } catch (error) {
+            console.error('Error sending file:', error);
+            throw error;
+        }
     }
 }
+
     // פונקציה לשליחת קובץ עם כיתוב
     async sendFile(groupId, message, fileUrl, fileName) {
         const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendFile}/${this.config.token}`;
@@ -291,72 +291,60 @@ class MessageManager {
     }
 
     // התחלת תהליך השליחה
-    async startSending() {
-        if (!this.validateForm() || this.isSending) return;
+async startSending() {
+    if (!this.validateForm() || this.isSending) return;
 
-        const messageInput = document.getElementById('message');
-        if (!messageInput) return;
+    const messageInput = document.getElementById('message');
+    if (!messageInput) return;
 
-        const message = messageInput.value.trim();
-        const totalGroups = this.selectedGroups.size;
-        let sent = 0;
-        let errors = 0;
+    const message = messageInput.value.trim();
+    const totalGroups = this.selectedGroups.size;
+    let sent = 0;
+    let errors = 0;
 
-        this.isSending = true;
-        this.shouldStop = false;
-        this.updateUI(true);
+    this.isSending = true;
+    this.shouldStop = false;
+    this.updateUI(true);
 
-        try {
-            for (const groupIndex of this.selectedGroups) {
-                if (this.shouldStop) break;
+    try {
+        for (const groupIndex of this.selectedGroups) {
+            if (this.shouldStop) break;
 
-                const group = this.groups[groupIndex];
-                console.log(`Preparing to send to group: ${group.name} (${group.id})`);
+            const group = this.groups[groupIndex];
+            const chatId = `${group.id}@g.us`;  // הוספת @g.us כאן
+            console.log(`Preparing to send to group: ${group.name} (${chatId})`);
 
-                try {
-                    // שליחת הודעת טקסט
-                    await this.whatsAppAPI.sendMessage(group.id, message);
-                    console.log(`Successfully sent message to ${group.name}`);
+            try {
+                // שליחת הודעת טקסט
+                await this.whatsAppAPI.sendMessage(chatId, message);  // שימוש ב-chatId המלא
+                console.log(`Successfully sent message to ${group.name}`);
 
-                    // שליחת קבצים
-                    if (this.files.length > 0) {
-                        for (const file of this.files) {
-                            const fileUrl = URL.createObjectURL(file);
-                            await this.whatsAppAPI.sendFile(group.id, '', fileUrl, file.name);
-                            URL.revokeObjectURL(fileUrl);
-                            console.log(`Successfully sent file ${file.name} to ${group.name}`);
-                        }
-                    }
+                sent++;
+                this.updateProgress(sent, totalGroups);
 
-                    sent++;
-                    this.updateProgress(sent, totalGroups);
-
-                    // המתנה בין הודעות
-                    if (!this.shouldStop && sent < totalGroups) {
-                        await new Promise(resolve => setTimeout(resolve, this.API_CONFIG.messageDelay));
-                    }
-                } catch (error) {
-                    console.error(`Error sending to group ${group.name}:`, error);
-                    errors++;
-                    // המשך לקבוצה הבאה גם אם נכשל
+                // המתנה בין הודעות
+                if (!this.shouldStop && sent < totalGroups) {
+                    await new Promise(resolve => setTimeout(resolve, this.API_CONFIG.messageDelay));
                 }
-            }
-        } finally {
-            this.isSending = false;
-            this.updateUI(false);
-            
-            // הצגת סיכום
-            if (this.shouldStop) {
-                alert('השליחה הופסקה');
-            } else {
-                const summary = `השליחה הושלמה!\n` +
-                              `נשלח בהצלחה: ${sent} קבוצות\n` +
-                              `שגיאות: ${errors} קבוצות`;
-                alert(summary);
+            } catch (error) {
+                console.error(`Error sending to group ${group.name}:`, error);
+                errors++;
             }
         }
+    } finally {
+        this.isSending = false;
+        this.updateUI(false);
+        
+        if (this.shouldStop) {
+            alert('השליחה הופסקה');
+        } else {
+            const summary = `השליחה הושלמה!\n` +
+                          `נשלח בהצלחה: ${sent} קבוצות\n` +
+                          `שגיאות: ${errors} קבוצות`;
+            alert(summary);
+        }
     }
-
+}
     // עדכון התקדמות
     updateProgress(sent, total) {
         const progressBar = document.querySelector('.progress-bar');
