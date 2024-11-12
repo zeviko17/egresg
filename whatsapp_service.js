@@ -101,7 +101,7 @@ class WhatsAppAPI {
    }
 
    async sendTextMessage(chatId, messageText) {
-       const sendMessageUrl = "https://7103.api.greenapi.com/waInstance7103962196/sendMessage/64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae";
+       const sendMessageUrl = `${API_CONFIG.baseUrl}${API_CONFIG.instanceId}/${API_CONFIG.endpoints.sendMessage}/${API_CONFIG.token}`;
 
        const payload = {
            chatId: chatId,
