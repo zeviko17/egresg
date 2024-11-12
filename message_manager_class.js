@@ -6,18 +6,22 @@ const SHEETS_CONFIG = {
 
 // מחלקה לניהול המצב הכללי של האפליקציה
 class MessageManager {
-    constructor() {
-        // מצב המערכת
-        this.groups = [];               // רשימת כל הקבוצות
-        this.selectedGroups = new Set(); // קבוצות שנבחרו (אינדקסים של הקבוצות)
-        this.files = [];                // קבצים שהועלו
-        this.isSending = false;         // האם כרגע בתהליך שליחה
-        this.shouldStop = false;        // האם לעצור את השליחה
-        
-        // אתחול
-        this.initializeUI();
-        this.loadGroups();
-    }
+   constructor() {
+    // מצב המערכת
+    this.groups = [];               
+    this.selectedGroups = new Set(); 
+    this.files = [];                
+    this.isSending = false;         
+    this.shouldStop = false;        
+    
+    // קבועים - למחוק את השורה הזו
+    this.API_CONFIG = API_CONFIG;  // למחוק את השורה הזו
+    this.whatsAppAPI = new WhatsAppAPI(this.API_CONFIG);  // למחוק את השורה הזו
+
+    // אתחול
+    this.initializeUI();
+    this.loadGroups();
+}
 
     // אתחול ממשק המשתמש
     initializeUI() {
