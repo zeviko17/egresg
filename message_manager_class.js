@@ -292,9 +292,21 @@ class MessageManager {
 
     // התחלת תהליך השליחה
 async startSending() {
-    if (!this.validateForm() || this.isSending) return;
+    // נריץ קודם את הטסט
+    try {
+        console.log('Running test message first...');
+        const testChatId = '120363291001444894@g.us';
+        const testMessage = 'שלום';
+        console.log('Testing send message to:', testChatId);
+        const testResponse = await this.whatsAppAPI.sendMessage(testChatId, testMessage);
+        console.log('Test message response:', testResponse);
+    } catch (error) {
+        console.error('Test message failed:', error);
+    }
 
-    const messageInput = document.getElementById('message');
+    // המשך הקוד המקורי של startSending
+    if (!this.validateForm() || this.isSending) return;
+     const messageInput = document.getElementById('message');
     if (!messageInput) return;
 
     const message = messageInput.value.trim();
