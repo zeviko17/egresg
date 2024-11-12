@@ -13,10 +13,6 @@ class MessageManager {
     this.files = [];                
     this.isSending = false;         
     this.shouldStop = false;        
-    
-    // קבועים - למחוק את השורה הזו
-    this.API_CONFIG = API_CONFIG;  // למחוק את השורה הזו
-    this.whatsAppAPI = new WhatsAppAPI(this.API_CONFIG);  // למחוק את השורה הזו
 
     // אתחול
     this.initializeUI();
@@ -221,7 +217,7 @@ class MessageManager {
 
                    // המתנה בין הודעות
                    if (!this.shouldStop && sent < totalGroups) {
-                       await new Promise(resolve => setTimeout(resolve, API_CONFIG.messageDelay));
+                       await new Promise(resolve => setTimeout(resolve, 10000)); // או להשתמש ב-window.API_CONFIG.messageDelay
                    }
                } catch (error) {
                    console.error(`Error sending to group ${group.name}:`, error);
@@ -235,8 +231,10 @@ class MessageManager {
            if (this.shouldStop) {
                alert('השליחה הופסקה');
            } else {
-               const summary = `השליחה הושלמה!\n` +
-                             `נשלח בהצלחה: ${sent} קבוצות\n` +
+               const summary = `השליחה הושלמה!
+` +
+                             `נשלח בהצלחה: ${sent} קבוצות
+` +
                              `שגיאות: ${errors} קבוצות`;
                alert(summary);
            }
