@@ -1,4 +1,4 @@
-// 0.051 מחלקה לניהול המצב הכללי של האפליקציה
+// 0.021 מחלקה לניהול המצב הכללי של האפליקציה
 class MessageManager {
     constructor() {
         // מצב המערכת
@@ -180,6 +180,8 @@ class MessageManager {
     // שליחת הודעת טקסט
     async sendTextMessage(chatId, message) {
         const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendMessage/${this.API_CONFIG.token}`;
+        console.log('Sending message with URL:', url);
+        console.log('Message details:', { chatId, message });
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -201,6 +203,8 @@ class MessageManager {
     // שליחת קובץ
     async sendFile(chatId, file, caption) {
         const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendFileByUpload/${this.API_CONFIG.token}`;
+        console.log('Sending file with URL:', url);
+        console.log('File details:', { chatId, caption, fileName: file.name });
 
         const formData = new FormData();
         formData.append('chatId', chatId);
