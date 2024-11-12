@@ -1,4 +1,6 @@
-// 0.021 מחלקה לניהול המצב הכללי של האפליקציה
+import WhatsAppAPI from './WhatsAppAPI.js';
+
+// 0.031 מחלקה לניהול המצב הכללי של האפליקציה
 class MessageManager {
     constructor() {
         // מצב המערכת
@@ -10,6 +12,7 @@ class MessageManager {
         
         // קבועים
         this.API_CONFIG = API_CONFIG;
+        this.whatsAppAPI = new WhatsAppAPI(this.API_CONFIG);
 
         // אתחול
         this.initializeUI();
@@ -179,48 +182,14 @@ class MessageManager {
 
     // שליחת הודעת טקסט
     async sendTextMessage(chatId, message) {
-        const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendMessage/${this.API_CONFIG.token}`;
-        console.log('Sending message with URL:', url);
-        console.log('Message details:', { chatId, message });
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                chatId: chatId,
-                message: message
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to send message: ${response.statusText}`);
-        }
-
-        return response.json();
+        console.log('Sending message with WhatsAppAPI:', { chatId, message });
+        return await this.whatsAppAPI.sendMessage(chatId, message);
     }
 
     // שליחת קובץ
     async sendFile(chatId, file, caption) {
-        const url = `${this.API_CONFIG.baseUrl}${this.API_CONFIG.instanceId}/sendFileByUpload/${this.API_CONFIG.token}`;
-        console.log('Sending file with URL:', url);
-        console.log('File details:', { chatId, caption, fileName: file.name });
-
-        const formData = new FormData();
-        formData.append('chatId', chatId);
-        formData.append('caption', caption);
-        formData.append('file', file);
-
-        const response = await fetch(url, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to send file: ${response.statusText}`);
-        }
-
-        return response.json();
+        console.log('Sending file with WhatsAppAPI:', { chatId, caption, fileName: file.name });
+        return await this.whatsAppAPI.sendFile(chatId, caption, URL.createObjectURL(file), file.name);
     }
 
     // התחלת תהליך השליחה
