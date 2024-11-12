@@ -47,6 +47,7 @@ class WhatsAppAPI {
                headers: {
                    'Content-Type': 'application/json'
                },
+              mode: 'no-cors',
                body: JSON.stringify(payload)
            });
 
@@ -82,6 +83,7 @@ class WhatsAppAPI {
                headers: {
                    'Content-Type': 'application/json'
                },
+              mode: 'no-cors',
                body: JSON.stringify(payload)
            });
 
