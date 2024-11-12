@@ -26,34 +26,35 @@ class WhatsAppAPI {
         this.config = config;
     }
 
-async sendMessage(groupId, message) {
-    const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
-    
-    const payload = {
-        chatId: groupId.includes('@') ? groupId : `${groupId}@g.us`,
-        message: message
-    };
+    async sendMessage(groupId, message) {
+        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
+        
+        const payload = {
+            chatId: groupId.includes('@') ? groupId : `${groupId}@g.us`,
+            message: message
+        };
 
-    try {
-        console.log('Sending message to:', groupId, 'with payload:', payload);
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            mode: 'no-cors',  // הוספנו את זה
-            body: JSON.stringify(payload)
-        });
+        try {
+            console.log('Sending message to:', groupId, 'with payload:', payload);
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                mode: 'no-cors',
+                body: JSON.stringify(payload)
+            });
 
-        const data = await response.json();
-        console.log('Response:', data);
-        return data;
+            const data = await response.json();
+            console.log('Response:', data);
+            return data;
 
-    } catch (error) {
-        console.error('Error sending message:', error);
-        throw error;
+        } catch (error) {
+            console.error('Error sending message:', error);
+            throw error;
+        }
     }
-}
+
     async sendFile(groupId, message, fileUrl, fileName) {
         const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendFile}/${this.config.token}`;
         
@@ -73,6 +74,7 @@ async sendMessage(groupId, message) {
                 headers: {
                     'Content-Type': 'application/json'
                 },
+                mode: 'no-cors',
                 body: JSON.stringify(payload)
             });
 
