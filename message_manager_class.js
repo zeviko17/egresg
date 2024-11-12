@@ -1,3 +1,4 @@
+
 // CONFIG
 const API_CONFIG = {
     instanceId: '7103962196',
@@ -29,7 +30,7 @@ class WhatsAppAPI {
     // פונקציה לשליחת הודעת טקסט
     async sendMessage(groupId, message) {
         // כתובת URL לשליחת הודעת טקסט
-        const url = 'https://7103.api.greenapi.com/waInstance7103962196/sendMessage/64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae';
+        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
 
         const payload = {
             chatId: groupId,
@@ -59,7 +60,7 @@ class WhatsAppAPI {
     // פונקציה לשליחת קובץ עם כיתוב
     async sendFile(groupId, message, fileUrl, fileName) {
         // כתובת URL לשליחת קובץ
-        const url = 'https://7103.api.greenapi.com/waInstance7103962196/sendFileByUrl/64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae';
+        const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendFile}/${this.config.token}`;
 
         const payload = {
             chatId: groupId,
@@ -89,7 +90,7 @@ class WhatsAppAPI {
     }
 }
 
-// 0.001 מחלקה לניהול המצב הכללי של האפליקציה
+// מחלקה לניהול המצב הכללי של האפליקציה
 class MessageManager {
     constructor() {
         // מצב המערכת
@@ -270,4 +271,153 @@ class MessageManager {
     }
 
     // שליחת הודעת טקסט
-    async sendTextMessage(chatId, message
+    async sendTextMessage(chatId, message) {
+        console.log('Sending message with WhatsAppAPI:', { chatId, message });
+        return await this.whatsAppAPI.sendMessage(chatId, message);
+    }
+
+    // התחלת תהליך השליחה
+    async startSending() {
+        if (!this.validateForm()) return;
+        if (this.isSending) return;
+
+        const messageInput = document.getElementById('message');
+        if (!messageInput) return;
+
+        const message = messageInput.value;
+        const totalGroups = this.selectedGroups.size;
+        let sent = 0;
+
+        this.isSending = true;
+        this.shouldStop = false;
+        this.updateUI(true);
+
+        try {
+            for (const groupIndex of this.selectedGroups) {
+                if (this.shouldStop) break;
+
+                const group = this.groups[groupIndex];
+                const groupName = group.name;
+                const chatId = group.id;
+
+                if (!chatId) {
+                    console.error(`No chat ID for group: ${groupName}`);
+                    continue; // Skip this group
+                }
+
+                try {
+                    // שליחת הודעת טקסט
+                    await this.sendTextMessage(chatId, message);
+
+                    // שליחת קבצים אם יש
+                    if (this.files.length > 0) {
+                        for (const file of this.files) {
+                            await this.whatsAppAPI.sendFile(chatId, '', URL.createObjectURL(file), file.name);
+                        }
+                    }
+
+                    sent++;
+                    this.updateProgress(sent, totalGroups);
+
+                    // המתנה בין הודעות
+                    if (!this.shouldStop && sent < totalGroups) {
+                        await new Promise(resolve => setTimeout(resolve, this.API_CONFIG.messageDelay));
+                    }
+                } catch (error) {
+                    console.error(`Error sending to group ${groupName}:`, error);
+                }
+            }
+        } finally {
+            this.isSending = false;
+            this.updateUI(false);
+            if (this.shouldStop) {
+                alert('השליחה הופסקה');
+            } else {
+                alert('השליחה הושלמה');
+            }
+        }
+    }
+
+    // עדכון התקדמות
+    updateProgress(sent, total) {
+        const progressBar = document.querySelector('.progress-bar');
+        const statusText = document.querySelector('.status-text');
+        
+        if (progressBar) {
+            const percentage = (sent / total) * 100;
+            progressBar.style.width = `${percentage}%`;
+        }
+        
+        if (statusText) {
+            statusText.textContent = `${sent}/${total} קבוצות`;
+        }
+    }
+
+    // עדכון ממשק המשתמש
+    updateUI(isSending) {
+        const progressArea = document.getElementById('progress');
+        const sendButton = document.querySelector('.send-button');
+        const inputs = document.querySelectorAll('input, textarea');
+        
+        if (progressArea) {
+            progressArea.style.display = isSending ? 'block' : 'none';
+        }
+        
+        if (sendButton) {
+            sendButton.disabled = isSending;
+        }
+
+        // ביטול/אפשור שדות קלט, מלבד כפתור עצור
+        inputs.forEach(input => {
+            if (input.id !== 'stopButton') {
+                input.disabled = isSending;
+            }
+        });
+    }
+
+    // בדיקת תקינות הטופס
+    validateForm() {
+        const messageInput = document.getElementById('message');
+        const sendButton = document.querySelector('.send-button');
+        
+        if (messageInput && sendButton) {
+            const isValid = messageInput.value.trim() && this.selectedGroups.size > 0;
+            sendButton.disabled = !isValid;
+            return isValid;
+        }
+        return false;
+    }
+
+    // החלפת מצב בחירה של קבוצה
+    toggleGroup(groupIndex) {
+        groupIndex = parseInt(groupIndex);
+        if (this.selectedGroups.has(groupIndex)) {
+            this.selectedGroups.delete(groupIndex);
+        } else {
+            this.selectedGroups.add(groupIndex);
+        }
+        this.validateForm();
+    }
+
+    // בחירת כל הקבוצות
+    selectAll() {
+        this.groups.forEach((group, index) => this.selectedGroups.add(index));
+        this.renderFilteredGroups(this.groups);
+        this.validateForm();
+    }
+
+    // ניקוי כל הבחירות
+    deselectAll() {
+        this.selectedGroups.clear();
+        this.renderFilteredGroups(this.groups);
+        this.validateForm();
+    }
+
+    // עצירת תהליך השליחה
+    stopSending() {
+        this.shouldStop = true;
+    }
+}
+
+// יצירת אובייקט המנהל והתחלת האפליקציה
+const messageManager = new MessageManager();
