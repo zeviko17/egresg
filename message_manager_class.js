@@ -1,9 +1,8 @@
-
 // CONFIG
 const API_CONFIG = {
     instanceId: '7103962196',
     token: '64e3bf31b17246f1957f8935b45f7fb5dc5517ee029d41fbae',
-    baseUrl: 'https://7103.api.greenapi.com/waInstance',
+    baseUrl: 'https://7103.api.greenapi.com/waInstance/',
     
     endpoints: {
         sendMessage: 'sendMessage',
@@ -27,17 +26,38 @@ class WhatsAppAPI {
         this.config = config;
     }
 
+    // פונקציה לפורמט של מזהה צ'אט
+    formatChatId(chatId) {
+        if (chatId.includes('@')) {
+            return chatId;
+        }
+        return `${chatId}@g.us`;
+    }
+
+    // פונקציה לבדיקת תגובת ה-API
+    async handleAPIResponse(response, action) {
+        const data = await response.json();
+        
+        if (!response.ok) {
+            console.error(`${action} failed:`, data);
+            throw new Error(`WhatsApp API Error: ${data.message || response.statusText}`);
+        }
+
+        console.log(`${action} completed successfully:`, data);
+        return data;
+    }
+
     // פונקציה לשליחת הודעת טקסט
     async sendMessage(groupId, message) {
-        // כתובת URL לשליחת הודעת טקסט
         const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendMessage}/${this.config.token}`;
 
         const payload = {
-            chatId: groupId,
+            chatId: this.formatChatId(groupId),
             message: message
         };
 
         try {
+            console.log('Sending message to:', groupId);
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -46,30 +66,26 @@ class WhatsAppAPI {
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
+            return await this.handleAPIResponse(response, 'Send message');
         } catch (error) {
             console.error('Error sending message:', error);
-            throw error;
+            throw new Error(`Failed to send message: ${error.message}`);
         }
     }
 
     // פונקציה לשליחת קובץ עם כיתוב
     async sendFile(groupId, message, fileUrl, fileName) {
-        // כתובת URL לשליחת קובץ
         const url = `${this.config.baseUrl}${this.config.instanceId}/${this.config.endpoints.sendFile}/${this.config.token}`;
 
         const payload = {
-            chatId: groupId,
+            chatId: this.formatChatId(groupId),
             urlFile: fileUrl,
             fileName: fileName,
             caption: message
         };
 
         try {
+            console.log('Sending file to:', groupId);
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -78,18 +94,13 @@ class WhatsAppAPI {
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
+            return await this.handleAPIResponse(response, 'Send file');
         } catch (error) {
             console.error('Error sending file:', error);
-            throw error;
+            throw new Error(`Failed to send file: ${error.message}`);
         }
     }
 }
-
 // מחלקה לניהול המצב הכללי של האפליקציה
 class MessageManager {
     constructor() {
@@ -129,72 +140,56 @@ class MessageManager {
     // טעינת קבוצות מגוגל שיטס
     async loadGroups() {
         try {
+            console.log('Starting to load groups from Google Sheets...');
             const response = await fetch(
                 `https://docs.google.com/spreadsheets/d/${SHEETS_CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${SHEETS_CONFIG.tabName}`
             );
-            const text = await response.text();
-            const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/)[1]);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-            const numCols = json.table.cols.length;
+            const text = await response.text();
+            const jsonMatch = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
+            
+            if (!jsonMatch) {
+                throw new Error('Failed to parse Google Sheets response');
+            }
+
+            const json = JSON.parse(jsonMatch[1]);
             const groups = [];
 
             json.table.rows.forEach((row, index) => {
-                // Extract the cells array directly from the row
                 const cells = row.c || [];
-
-                // Extract name and ID from the correct columns
                 const nameCell = cells[1]; // Column B
                 const idCell = cells[3];   // Column D
 
                 if (nameCell && nameCell.v) {
-                    const name = nameCell.v;
+                    const name = nameCell.v.trim();
                     let id = null;
 
                     if (idCell) {
-                        // Check both 'v' and 'f' properties
-                        if (idCell.v !== null && idCell.v !== undefined) {
-                            id = idCell.v;
-                        } else if (idCell.f !== null && idCell.f !== undefined) {
-                            id = idCell.f;
+                        id = idCell.v || idCell.f;
+                        if (id) {
+                            id = id.toString().trim();
                         }
                     }
 
-                    // Log the ID for debugging purposes
-                    console.log(`Raw ID value for group '${name}':`, id);
-
-                    // Check if ID is valid and convert to string if necessary
                     if (id) {
-                        id = id.toString().trim();
-                        console.log(`Processed ID for group '${name}':`, id);
+                        console.log(`Loading group: ${name} with ID: ${id}`);
+                        groups.push({ name, id });
                     } else {
-                        console.warn(`No valid ID found for group '${name}', setting ID to null.`);
+                        console.warn(`Skipping group '${name}' - missing ID`);
                     }
-
-                    // Log the group for debugging
-                    console.log(`Found group: name=${name}, id=${id}`);
-
-                    groups.push({ name, id });
                 }
             });
 
-            // Log to check all loaded groups
-            console.log('All loaded groups:', groups);
-
-            // Sort groups alphabetically by name
+            // מיון קבוצות לפי שם
             this.groups = groups.sort((a, b) => a.name.localeCompare(b.name));
+            console.log(`Successfully loaded ${this.groups.length} groups`);
 
-            // Render groups in the HTML
-            const container = document.querySelector('.neighborhood-list');
-            if (container) {
-                container.innerHTML = this.groups.map((group, index) => `
-                    <div class="group-item">
-                        <input type="checkbox" 
-                               id="group-${index}" 
-                               onchange="messageManager.toggleGroup(${index})">
-                        <label for="group-${index}"> ${group.name}</label>
-                    </div>
-                `).join('');
-            }
+            // רינדור הקבוצות
+            this.renderFilteredGroups(this.groups);
 
         } catch (error) {
             console.error('Error loading groups:', error);
@@ -202,9 +197,10 @@ class MessageManager {
         }
     }
 
-    // חיפוש קבוצות (אם נדרש)
+    // חיפוש קבוצות
     handleSearch(event) {
         const searchTerm = event.target.value.trim().toLowerCase();
+        
         const filteredGroups = searchTerm 
             ? this.groups.filter(group => 
                 group.name.toLowerCase().includes(searchTerm)
@@ -217,50 +213,59 @@ class MessageManager {
     // הצגת קבוצות מסוננות
     renderFilteredGroups(groups) {
         const container = document.querySelector('.neighborhood-list');
-        if (container) {
-            container.innerHTML = groups.map((group, index) => `
-                <div class="group-item">
-                    <input type="checkbox" 
-                           id="group-${index}" 
-                           ${this.selectedGroups.has(index) ? 'checked' : ''}
-                           onchange="messageManager.toggleGroup(${index})">
-                    <label for="group-${index}">
-                        ${group.name}
-                    </label>
-                </div>
-            `).join('');
-        }
+        if (!container) return;
+
+        container.innerHTML = groups.map((group, index) => `
+            <div class="group-item">
+                <input type="checkbox" 
+                       id="group-${index}" 
+                       ${this.selectedGroups.has(index) ? 'checked' : ''}
+                       onchange="messageManager.toggleGroup(${index})">
+                <label for="group-${index}">
+                    ${group.name}
+                </label>
+            </div>
+        `).join('');
     }
 
     // טיפול בבחירת קבצים
     handleFileSelect(event) {
         const maxFiles = 10;
+        const maxFileSize = 16 * 1024 * 1024; // 16MB
         const newFiles = Array.from(event.target.files);
         
+        // בדיקת מספר קבצים
         if (this.files.length + newFiles.length > maxFiles) {
             alert(`ניתן להעלות עד ${maxFiles} קבצים`);
             return;
+        }
+
+        // בדיקת גודל קבצים
+        for (const file of newFiles) {
+            if (file.size > maxFileSize) {
+                alert(`הקובץ ${file.name} גדול מדי. הגודל המקסימלי המותר הוא 16MB`);
+                return;
+            }
         }
 
         this.files = this.files.concat(newFiles);
         this.renderFilesPreviews();
         this.validateForm();
     }
-
-    // הצגת תצוגה מקדימה של קבצים
+// הצגת תצוגה מקדימה של קבצים
     renderFilesPreviews() {
         const container = document.getElementById('image-preview');
-        if (container) {
-            container.innerHTML = this.files.map((file, index) => `
-                <div class="file-preview">
-                    ${file.type.startsWith('image/') 
-                        ? `<img src="${URL.createObjectURL(file)}" alt="${file.name}">`
-                        : `<div class="file-icon">📁 ${file.name}</div>`
-                    }
-                    <div class="remove" onclick="messageManager.removeFile(${index})">×</div>
-                </div>
-            `).join('');
-        }
+        if (!container) return;
+
+        container.innerHTML = this.files.map((file, index) => `
+            <div class="file-preview">
+                ${file.type.startsWith('image/') 
+                    ? `<img src="${URL.createObjectURL(file)}" alt="${file.name}" class="preview-image">`
+                    : `<div class="file-icon">📁 ${file.name}</div>`
+                }
+                <div class="remove-file" onclick="messageManager.removeFile(${index})">×</div>
+            </div>
+        `).join('');
     }
 
     // הסרת קובץ
@@ -270,23 +275,17 @@ class MessageManager {
         this.validateForm();
     }
 
-    // שליחת הודעת טקסט
-    async sendTextMessage(chatId, message) {
-        console.log('Sending message with WhatsAppAPI:', { chatId, message });
-        return await this.whatsAppAPI.sendMessage(chatId, message);
-    }
-
     // התחלת תהליך השליחה
     async startSending() {
-        if (!this.validateForm()) return;
-        if (this.isSending) return;
+        if (!this.validateForm() || this.isSending) return;
 
         const messageInput = document.getElementById('message');
         if (!messageInput) return;
 
-        const message = messageInput.value;
+        const message = messageInput.value.trim();
         const totalGroups = this.selectedGroups.size;
         let sent = 0;
+        let errors = 0;
 
         this.isSending = true;
         this.shouldStop = false;
@@ -297,22 +296,20 @@ class MessageManager {
                 if (this.shouldStop) break;
 
                 const group = this.groups[groupIndex];
-                const groupName = group.name;
-                const chatId = group.id;
-
-                if (!chatId) {
-                    console.error(`No chat ID for group: ${groupName}`);
-                    continue; // Skip this group
-                }
+                console.log(`Preparing to send to group: ${group.name} (${group.id})`);
 
                 try {
                     // שליחת הודעת טקסט
-                    await this.sendTextMessage(chatId, message);
+                    await this.whatsAppAPI.sendMessage(group.id, message);
+                    console.log(`Successfully sent message to ${group.name}`);
 
-                    // שליחת קבצים אם יש
+                    // שליחת קבצים
                     if (this.files.length > 0) {
                         for (const file of this.files) {
-                            await this.whatsAppAPI.sendFile(chatId, '', URL.createObjectURL(file), file.name);
+                            const fileUrl = URL.createObjectURL(file);
+                            await this.whatsAppAPI.sendFile(group.id, '', fileUrl, file.name);
+                            URL.revokeObjectURL(fileUrl);
+                            console.log(`Successfully sent file ${file.name} to ${group.name}`);
                         }
                     }
 
@@ -324,16 +321,23 @@ class MessageManager {
                         await new Promise(resolve => setTimeout(resolve, this.API_CONFIG.messageDelay));
                     }
                 } catch (error) {
-                    console.error(`Error sending to group ${groupName}:`, error);
+                    console.error(`Error sending to group ${group.name}:`, error);
+                    errors++;
+                    // המשך לקבוצה הבאה גם אם נכשל
                 }
             }
         } finally {
             this.isSending = false;
             this.updateUI(false);
+            
+            // הצגת סיכום
             if (this.shouldStop) {
                 alert('השליחה הופסקה');
             } else {
-                alert('השליחה הושלמה');
+                const summary = `השליחה הושלמה!\n` +
+                              `נשלח בהצלחה: ${sent} קבוצות\n` +
+                              `שגיאות: ${errors} קבוצות`;
+                alert(summary);
             }
         }
     }
@@ -365,9 +369,9 @@ class MessageManager {
         
         if (sendButton) {
             sendButton.disabled = isSending;
+            sendButton.textContent = isSending ? 'שולח...' : 'שלח הודעה';
         }
 
-        // ביטול/אפשור שדות קלט, מלבד כפתור עצור
         inputs.forEach(input => {
             if (input.id !== 'stopButton') {
                 input.disabled = isSending;
@@ -380,12 +384,11 @@ class MessageManager {
         const messageInput = document.getElementById('message');
         const sendButton = document.querySelector('.send-button');
         
-        if (messageInput && sendButton) {
-            const isValid = messageInput.value.trim() && this.selectedGroups.size > 0;
-            sendButton.disabled = !isValid;
-            return isValid;
-        }
-        return false;
+        if (!messageInput || !sendButton) return false;
+
+        const isValid = messageInput.value.trim().length > 0 && this.selectedGroups.size > 0;
+        sendButton.disabled = !isValid;
+        return isValid;
     }
 
     // החלפת מצב בחירה של קבוצה
@@ -416,6 +419,7 @@ class MessageManager {
     // עצירת תהליך השליחה
     stopSending() {
         this.shouldStop = true;
+        console.log('Stopping sending process...');
     }
 }
 
